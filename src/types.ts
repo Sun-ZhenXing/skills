@@ -17,6 +17,7 @@ export type AgentType =
   | 'kilo'
   | 'kimi-cli'
   | 'kiro-cli'
+  | 'kode'
   | 'mcpjam'
   | 'mux'
   | 'neovate'
