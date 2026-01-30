@@ -14,7 +14,6 @@ describe('skills CLI', () => {
       expect(output).toContain('add <package>');
       expect(output).toContain('check');
       expect(output).toContain('update');
-      expect(output).toContain('generate-lock');
       expect(output).toContain('Add Options:');
       expect(output).toContain('-g, --global');
       expect(output).toContain('-a, --agent');
@@ -82,11 +81,6 @@ describe('skills CLI', () => {
 
     it('should not display logo for update command', () => {
       const output = runCliOutput(['update']);
-      expect(hasLogo(output)).toBe(false);
-    });
-
-    it('should not display logo for generate-lock command', () => {
-      const output = runCliOutput(['generate-lock']);
       expect(hasLogo(output)).toBe(false);
     });
   });

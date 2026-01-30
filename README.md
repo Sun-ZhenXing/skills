@@ -93,7 +93,6 @@ When installing interactively, you can choose:
 | `npx skills check`           | Check for available skill updates                       |
 | `npx skills update`          | Update all installed skills to latest versions          |
 | `npx skills init [name]`     | Create a new SKILL.md template                          |
-| `npx skills generate-lock`   | Match installed skills to sources for update tracking   |
 
 ### `skills list`
 
@@ -140,16 +139,6 @@ npx skills init
 
 # Create a new skill in a subdirectory
 npx skills init my-skill
-```
-
-### `skills generate-lock`
-
-```bash
-# Match installed skills to sources for update tracking
-npx skills generate-lock
-
-# Preview without writing
-npx skills generate-lock --dry-run
 ```
 
 ### `skills remove`
