@@ -492,14 +492,31 @@ async function runUpdate(): Promise<void> {
   for (const update of updates) {
     console.log(`${TEXT}Updating ${update.name}...${RESET}`);
 
-    // Use skills CLI to reinstall with -g -y flags
-    const result = spawnSync(
-      'npx',
-      ['-y', 'skills', 'add', update.entry.sourceUrl, '--skill', update.name, '-g', '-y'],
-      {
-        stdio: ['inherit', 'pipe', 'pipe'],
+    // Build the URL with subpath to target the specific skill directory
+    // e.g., https://github.com/owner/repo/tree/main/skills/my-skill
+    let installUrl = update.entry.sourceUrl;
+    if (update.entry.skillPath) {
+      // Extract the skill folder path (remove /SKILL.md suffix)
+      let skillFolder = update.entry.skillPath;
+      if (skillFolder.endsWith('/SKILL.md')) {
+        skillFolder = skillFolder.slice(0, -9);
+      } else if (skillFolder.endsWith('SKILL.md')) {
+        skillFolder = skillFolder.slice(0, -8);
       }
-    );
+      if (skillFolder.endsWith('/')) {
+        skillFolder = skillFolder.slice(0, -1);
+      }
+
+      // Convert git URL to tree URL with path
+      // https://github.com/owner/repo.git -> https://github.com/owner/repo/tree/main/path
+      installUrl = update.entry.sourceUrl.replace(/\.git$/, '').replace(/\/$/, '');
+      installUrl = `${installUrl}/tree/main/${skillFolder}`;
+    }
+
+    // Use skills CLI to reinstall with -g -y flags
+    const result = spawnSync('npx', ['-y', 'skills', 'add', installUrl, '-g', '-y'], {
+      stdio: ['inherit', 'pipe', 'pipe'],
+    });
 
     if (result.status === 0) {
       successCount++;

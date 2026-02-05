@@ -295,7 +295,8 @@ export const agents: Record<AgentType, AgentConfig> = {
     name: 'replit',
     displayName: 'Replit',
     skillsDir: '.agents/skills',
-    globalSkillsDir: undefined,
+    globalSkillsDir: join(configHome, 'agents/skills'),
+    showInUniversalList: false,
     detectInstalled: async () => {
       return existsSync(join(process.cwd(), '.agents'));
     },
@@ -391,10 +392,13 @@ export function getAgentConfig(type: AgentType): AgentConfig {
 /**
  * Returns agents that use the universal .agents/skills directory.
  * These agents share a common skill location and don't need symlinks.
+ * Agents with showInUniversalList: false are excluded.
  */
 export function getUniversalAgents(): AgentType[] {
   return (Object.entries(agents) as [AgentType, AgentConfig][])
-    .filter(([_, config]) => config.skillsDir === '.agents/skills')
+    .filter(
+      ([_, config]) => config.skillsDir === '.agents/skills' && config.showInUniversalList !== false
+    )
     .map(([type]) => type);
 }
 
