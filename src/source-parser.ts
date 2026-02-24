@@ -119,22 +119,42 @@ function isDirectSkillUrl(input: string): boolean {
 }
 
 function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: string } | null {
+  let sourceInput = input;
+  let refFromSuffix: string | undefined;
+
+  // Optional trailing @ref syntax, e.g.:
+  // - https://github.com/user/repo.git@v1.2.3
+  // - git@github.com:user/repo.git@main
+  // Use the LAST @ so SSH user segment (git@host:...) is preserved.
+  const lastAt = input.lastIndexOf('@');
+  if (lastAt > 0 && lastAt < input.length - 1) {
+    const base = input.slice(0, lastAt);
+    const suffix = input.slice(lastAt + 1);
+    const isScpLikeBase = /^[^\s@]+@[^\s:#]+:[^\s#]+$/.test(base);
+    const isSchemeBase = /^(https?|ssh|git):\/\//.test(base);
+
+    if ((isScpLikeBase || isSchemeBase) && !suffix.includes('#') && !suffix.includes('?')) {
+      sourceInput = base;
+      refFromSuffix = suffix;
+    }
+  }
+
   // scp-like syntax: git@host:org/repo.git[#ref]
-  const scpLikeMatch = input.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
+  const scpLikeMatch = sourceInput.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
   if (scpLikeMatch) {
-    const [, base, ref] = scpLikeMatch;
+    const [, base, refFromHash] = scpLikeMatch;
     return {
       normalizedUrl: base!,
-      ref,
+      ref: refFromSuffix || refFromHash,
     };
   }
 
-  if (!/^(https?|ssh|git):\/\//.test(input)) {
+  if (!/^(https?|ssh|git):\/\//.test(sourceInput)) {
     return null;
   }
 
   try {
-    const parsed = new URL(input);
+    const parsed = new URL(sourceInput);
 
     // For HTTP(S), only treat .git paths as generic git repos.
     // This prevents classifying arbitrary websites as git repositories.
@@ -147,7 +167,7 @@ function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: st
 
     const refFromQuery = parsed.searchParams.get('ref') ?? undefined;
     const refFromHash = parsed.hash ? parsed.hash.slice(1) : undefined;
-    const ref = refFromQuery || refFromHash;
+    const ref = refFromSuffix || refFromQuery || refFromHash;
 
     // Normalize by dropping tracking-only selectors
     if (parsed.searchParams.has('ref')) {
@@ -225,13 +245,18 @@ export function parseSource(input: string): ParsedSource {
   }
 
   // GitHub URL: https://github.com/owner/repo
-  const githubRepoMatch = input.match(/github\.com\/([^/]+)\/([^/]+)/);
+  const githubRepoMatch = input.match(
+    /^https?:\/\/github\.com\/([^/]+)\/([^/@]+?)(?:\.git)?(?:@([^/?#]+))?\/?$/
+  );
   if (githubRepoMatch) {
-    const [, owner, repo] = githubRepoMatch;
-    const cleanRepo = repo!.replace(/\.git$/, '');
+    const [, owner, repo, ref] = githubRepoMatch;
+    const cleanRepo = repo!;
     return {
       type: 'github',
       url: `https://github.com/${owner}/${cleanRepo}.git`,
+      ref,
+      declaredRef: ref,
+      resolvedRef: ref,
     };
   }
 
@@ -273,12 +298,23 @@ export function parseSource(input: string): ParsedSource {
   // Supports nested subgroups (e.g., gitlab.com/group/subgroup1/subgroup2/repo).
   const gitlabRepoMatch = input.match(/gitlab\.com\/(.+?)(?:\.git)?\/?$/);
   if (gitlabRepoMatch) {
-    const repoPath = gitlabRepoMatch[1]!;
+    let repoPath = gitlabRepoMatch[1]!;
+    let ref: string | undefined;
+
+    const lastAt = repoPath.lastIndexOf('@');
+    if (lastAt > 0 && lastAt < repoPath.length - 1) {
+      ref = repoPath.slice(lastAt + 1);
+      repoPath = repoPath.slice(0, lastAt);
+    }
+
     // Must have at least owner/repo (one slash)
     if (repoPath.includes('/')) {
       return {
         type: 'gitlab',
         url: `https://gitlab.com/${repoPath}.git`,
+        ref,
+        declaredRef: ref,
+        resolvedRef: ref,
       };
     }
   }
@@ -313,6 +349,7 @@ export function parseSource(input: string): ParsedSource {
       type: 'git',
       url: genericGitSource.normalizedUrl,
       ref: genericGitSource.ref,
+      declaredRef: genericGitSource.ref,
       resolvedRef: genericGitSource.ref,
     };
   }

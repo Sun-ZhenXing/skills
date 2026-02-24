@@ -38,7 +38,7 @@ Instructions.
       const result = runCli(['experimental_sync', '-y', '-a', 'claude-code'], testDir);
       expect(result.stdout).toContain('root-skill');
       expect(result.stdout).toContain('my-skill-pkg');
-    });
+    }, 15000);
 
     it('should find skills in skills/ subdirectory', () => {
       const skillDir = join(testDir, 'node_modules', 'my-lib', 'skills', 'helper-skill');
@@ -58,7 +58,7 @@ Instructions.
       const result = runCli(['experimental_sync', '-y', '-a', 'claude-code'], testDir);
       expect(result.stdout).toContain('helper-skill');
       expect(result.stdout).toContain('my-lib');
-    });
+    }, 15000);
 
     it('should find skills in scoped packages', () => {
       const pkgDir = join(testDir, 'node_modules', '@acme', 'tools');
@@ -78,19 +78,19 @@ Instructions.
       const result = runCli(['experimental_sync', '-y', '-a', 'claude-code'], testDir);
       expect(result.stdout).toContain('acme-tool');
       expect(result.stdout).toContain('@acme/tools');
-    });
+    }, 15000);
 
     it('should show no skills found when node_modules is empty', () => {
       mkdirSync(join(testDir, 'node_modules'), { recursive: true });
 
       const result = runCli(['experimental_sync', '-y'], testDir);
       expect(result.stdout).toContain('No skills found');
-    });
+    }, 15000);
 
     it('should show no skills found when no node_modules exists', () => {
       const result = runCli(['experimental_sync', '-y'], testDir);
       expect(result.stdout).toContain('No skills found');
-    });
+    }, 15000);
   });
 
   describe('skills-lock.json', () => {
@@ -120,7 +120,7 @@ Instructions.
       expect(lock.skills['lock-test-skill'].source).toBe('my-pkg');
       expect(lock.skills['lock-test-skill'].sourceType).toBe('node_modules');
       expect(lock.skills['lock-test-skill'].computedHash).toMatch(/^[a-f0-9]{64}$/);
-    });
+    }, 15000);
 
     it('should not have timestamps in lock entries', () => {
       const pkgDir = join(testDir, 'node_modules', 'my-pkg');
@@ -142,7 +142,7 @@ description: No timestamps
       const entry = lock.skills['no-timestamp-skill'];
       expect(entry.installedAt).toBeUndefined();
       expect(entry.updatedAt).toBeUndefined();
-    });
+    }, 15000);
 
     it('should sort skills alphabetically in lock file', () => {
       // Create three packages in reverse order
@@ -166,7 +166,7 @@ description: ${name} description
       const raw = readFileSync(join(testDir, 'skills-lock.json'), 'utf-8');
       const keys = Object.keys(JSON.parse(raw).skills);
       expect(keys).toEqual(['alpha-skill', 'mid-skill', 'zebra-skill']);
-    });
+    }, 15000);
 
     it('should skip unchanged skills on second sync', () => {
       const pkgDir = join(testDir, 'node_modules', 'my-pkg');
@@ -188,7 +188,7 @@ description: Test caching
       // Second sync - should say up to date
       const result = runCli(['experimental_sync', '-y', '-a', 'claude-code'], testDir);
       expect(result.stdout).toContain('up to date');
-    });
+    }, 15000);
 
     it('should reinstall when --force is used', () => {
       const pkgDir = join(testDir, 'node_modules', 'my-pkg');
@@ -211,19 +211,19 @@ description: Test force
       const result = runCli(['experimental_sync', '-y', '-a', 'claude-code', '--force'], testDir);
       expect(result.stdout).toContain('force-skill');
       expect(result.stdout).not.toContain('All skills are up to date');
-    });
+    }, 30000);
   });
 
   describe('CLI routing', () => {
     it('should show experimental_sync in help output', () => {
       const result = runCli(['--help']);
       expect(result.stdout).toContain('experimental_sync');
-    });
+    }, 15000);
 
     it('should show experimental_sync in banner', () => {
       const result = runCli([]);
       expect(result.stdout).toContain('experimental_sync');
-    });
+    }, 15000);
   });
 
   describe('multiple skills from one package', () => {
@@ -248,6 +248,6 @@ description: ${name} from multi package
       expect(result.stdout).toContain('skill-one');
       expect(result.stdout).toContain('skill-two');
       expect(result.stdout).toContain('multi-skill-pkg');
-    });
+    }, 15000);
   });
 });

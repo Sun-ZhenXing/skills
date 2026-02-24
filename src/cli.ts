@@ -285,7 +285,9 @@ interface SkillLockEntry {
   sourceType: string;
   sourceUrl: string;
   skillPath?: string;
+  declaredRef?: string;
   resolvedRef?: string;
+  resolvedRevision?: string;
   /** GitHub tree SHA for the entire skill folder (v3) */
   skillFolderHash: string;
   installedAt: string;
@@ -583,7 +585,11 @@ async function runUpdate(): Promise<void> {
       // Convert git URL to tree URL with path
       // https://github.com/owner/repo.git -> https://github.com/owner/repo/tree/main/path
       installUrl = update.entry.sourceUrl.replace(/\.git$/, '').replace(/\/$/, '');
-      const refForUpdate = update.entry.resolvedRef || 'main';
+      const refForUpdate =
+        update.entry.declaredRef ||
+        update.entry.resolvedRef ||
+        update.entry.resolvedRevision ||
+        'main';
       installUrl = `${installUrl}/tree/${refForUpdate}/${skillFolder}`;
     }
 

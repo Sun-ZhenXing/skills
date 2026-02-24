@@ -65,6 +65,7 @@ describe('source-parser', () => {
         type: 'git',
         url: 'https://git.mycompany.com/my-group/my-repo.git',
         ref: 'release/v2',
+        declaredRef: 'release/v2',
         resolvedRef: 'release/v2',
       });
     });
@@ -75,6 +76,7 @@ describe('source-parser', () => {
         type: 'git',
         url: 'https://git.mycompany.com/my-group/my-repo.git',
         ref: 'main',
+        declaredRef: 'main',
         resolvedRef: 'main',
       });
     });
@@ -85,6 +87,29 @@ describe('source-parser', () => {
         type: 'git',
         url: 'git@git.mycompany.com:my-group/my-repo.git',
         ref: 'feature/test',
+        declaredRef: 'feature/test',
+        resolvedRef: 'feature/test',
+      });
+    });
+
+    it('extracts trailing @ref from generic HTTPS git URL', () => {
+      const result = parseSource('https://git.mycompany.com/my-group/my-repo.git@release/v3');
+      expect(result).toEqual({
+        type: 'git',
+        url: 'https://git.mycompany.com/my-group/my-repo.git',
+        ref: 'release/v3',
+        declaredRef: 'release/v3',
+        resolvedRef: 'release/v3',
+      });
+    });
+
+    it('extracts trailing @ref from scp-like ssh locator', () => {
+      const result = parseSource('git@git.mycompany.com:my-group/my-repo.git@feature/test');
+      expect(result).toEqual({
+        type: 'git',
+        url: 'git@git.mycompany.com:my-group/my-repo.git',
+        ref: 'feature/test',
+        declaredRef: 'feature/test',
         resolvedRef: 'feature/test',
       });
     });
@@ -122,6 +147,17 @@ describe('source-parser', () => {
         ref: 'main',
         resolvedRef: 'main',
         subpath: 'path',
+      });
+    });
+
+    it('parses github repo URL with trailing @ref suffix', () => {
+      const result = parseSource('https://github.com/owner/repo.git@v1.2.3');
+      expect(result).toEqual({
+        type: 'github',
+        url: 'https://github.com/owner/repo.git',
+        ref: 'v1.2.3',
+        declaredRef: 'v1.2.3',
+        resolvedRef: 'v1.2.3',
       });
     });
 

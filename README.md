@@ -31,10 +31,13 @@ npx skills add https://gitlab.com/org/repo
 npx skills add git@github.com:vercel-labs/agent-skills.git
 
 # Any HTTPS git URL with explicit ref
-npx skills add https://git.example.com/team/skill-pack.git#release-2026
+npx skills add https://git.example.com/team/skill-pack.git@release-2026
+
+# GitHub URL with explicit tag/branch/commit ref
+npx skills add https://github.com/user/skills.git@v1.2.3
 
 # Any SSH git URL with explicit ref
-npx skills add git@git.example.com:team/skill-pack.git#main
+npx skills add git@git.example.com:team/skill-pack.git@main
 
 # Local path
 npx skills add ./my-local-skills

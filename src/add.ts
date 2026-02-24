@@ -1614,6 +1614,7 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
     }
 
     let skillsDir: string;
+    let resolvedRevision: string | undefined;
 
     if (parsed.type === 'local') {
       // Use local path directly, no cloning needed
@@ -1628,7 +1629,9 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
     } else {
       // Clone repository for remote sources
       spinner.start('Cloning repository...');
-      tempDir = await cloneRepo(parsed.url, parsed.ref);
+      const cloneResult = await cloneRepo(parsed.url, parsed.ref);
+      tempDir = cloneResult.tempDir;
+      resolvedRevision = cloneResult.resolvedRevision;
       skillsDir = tempDir;
       spinner.stop('Repository cloned');
     }
@@ -2065,7 +2068,9 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
               sourceType: parsed.type,
               sourceUrl: parsed.url,
               skillPath: skillPathValue,
+              declaredRef: parsed.declaredRef ?? parsed.ref,
               resolvedRef: parsed.resolvedRef ?? parsed.ref,
+              resolvedRevision,
               skillFolderHash,
             });
           } catch {
@@ -2088,7 +2093,9 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
               {
                 source: normalizedSource || parsed.url,
                 sourceType: parsed.type,
+                declaredRef: parsed.declaredRef ?? parsed.ref,
                 resolvedRef: parsed.resolvedRef ?? parsed.ref,
+                resolvedRevision,
                 computedHash,
               },
               cwd

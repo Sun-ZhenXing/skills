@@ -104,7 +104,9 @@ describe('local-lock', () => {
             'git-skill': {
               source: 'git@git.example.com:team/skills.git',
               sourceType: 'git',
+              declaredRef: 'release/2026',
               resolvedRef: 'release/2026',
+              resolvedRevision: '6e3f5a4b72b9f2b80d2a76d231c71095aa34b4e0',
               computedHash: 'abc123',
             },
           },
@@ -232,14 +234,20 @@ describe('local-lock', () => {
           {
             source: 'https://git.example.com/team/skills.git',
             sourceType: 'git',
+            declaredRef: 'v1.0.0',
             resolvedRef: 'v1.0.0',
+            resolvedRevision: '9f5e7af8f0df2478a3aa3a6bf3534e8f8f4b706d',
             computedHash: 'hash123',
           },
           dir
         );
 
         const lock = await readLocalLock(dir);
+        expect(lock.skills['git-skill']?.declaredRef).toBe('v1.0.0');
         expect(lock.skills['git-skill']?.resolvedRef).toBe('v1.0.0');
+        expect(lock.skills['git-skill']?.resolvedRevision).toBe(
+          '9f5e7af8f0df2478a3aa3a6bf3534e8f8f4b706d'
+        );
       } finally {
         await rm(dir, { recursive: true, force: true });
       }

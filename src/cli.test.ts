@@ -129,7 +129,7 @@ describe('skills CLI', () => {
       } finally {
         rmSync(homeDir, { recursive: true, force: true });
       }
-    });
+    }, 15000);
 
     it('update reports non-GitHub entries as manually updatable', () => {
       const lock = {

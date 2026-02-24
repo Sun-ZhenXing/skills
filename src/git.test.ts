@@ -15,17 +15,23 @@ describe('git clone behavior', () => {
   it('checks out explicit ref after cloning generic git source', async () => {
     const clone = vi.fn().mockResolvedValue(undefined);
     const checkout = vi.fn().mockResolvedValue(undefined);
+    const revparse = vi.fn().mockResolvedValue('abc123\n');
 
     const simpleGitMock = vi.mocked(simpleGit);
     simpleGitMock.mockImplementationOnce(() => ({ clone }) as any);
-    simpleGitMock.mockImplementationOnce(() => ({ checkout }) as any);
+    simpleGitMock.mockImplementationOnce(() => ({ checkout, revparse }) as any);
 
-    const tempDir = await cloneRepo('https://git.example.com/team/skills.git', 'release/v1');
+    const result = await cloneRepo('https://git.example.com/team/skills.git', 'release/v1');
 
-    expect(clone).toHaveBeenCalledWith('https://git.example.com/team/skills.git', tempDir, []);
+    expect(clone).toHaveBeenCalledWith(
+      'https://git.example.com/team/skills.git',
+      result.tempDir,
+      []
+    );
     expect(checkout).toHaveBeenCalledWith('release/v1');
+    expect(result.resolvedRevision).toBe('abc123');
 
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(result.tempDir, { recursive: true, force: true });
   });
 
   it('maps authentication failures to actionable GitCloneError', async () => {

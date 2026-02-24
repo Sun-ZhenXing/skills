@@ -27,7 +27,12 @@ export class GitCloneError extends Error {
   }
 }
 
-export async function cloneRepo(url: string, ref?: string): Promise<string> {
+export interface CloneResult {
+  tempDir: string;
+  resolvedRevision?: string;
+}
+
+export async function cloneRepo(url: string, ref?: string): Promise<CloneResult> {
   const tempDir = await mkdtemp(join(tmpdir(), 'skills-'));
   const git = simpleGit({
     timeout: { block: CLONE_TIMEOUT_MS },
@@ -39,15 +44,34 @@ export async function cloneRepo(url: string, ref?: string): Promise<string> {
   try {
     await git.clone(url, tempDir, cloneOptions);
 
+    const clonedRepo = simpleGit({
+      baseDir: tempDir,
+      timeout: { block: CLONE_TIMEOUT_MS },
+    });
+
     if (ref) {
-      const clonedRepo = simpleGit({
-        baseDir: tempDir,
-        timeout: { block: CLONE_TIMEOUT_MS },
-      });
-      await clonedRepo.checkout(ref);
+      try {
+        await clonedRepo.checkout(ref);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new GitCloneError(
+          `Failed to checkout ref '${ref}' for ${url}.
+  - Verify the ref exists (tag/branch/commit)
+  - Ensure the ref is accessible in this repository
+  - Git error: ${message}`,
+          url
+        );
+      }
     }
 
-    return tempDir;
+    let resolvedRevision: string | undefined;
+    try {
+      resolvedRevision = (await clonedRepo.revparse(['HEAD'])).trim();
+    } catch {
+      resolvedRevision = undefined;
+    }
+
+    return { tempDir, resolvedRevision };
   } catch (error) {
     // Clean up temp dir on failure
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});

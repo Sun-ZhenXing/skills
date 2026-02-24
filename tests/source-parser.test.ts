@@ -198,6 +198,24 @@ describe('parseSource', () => {
       expect(result.url).toBe('git@github.com:owner/repo.git');
     });
 
+    it('Git URL - HTTPS with trailing @ref', () => {
+      const result = parseSource('https://git.example.com/owner/repo.git@release-2026');
+      expect(result.type).toBe('git');
+      expect(result.url).toBe('https://git.example.com/owner/repo.git');
+      expect(result.ref).toBe('release-2026');
+      expect(result.declaredRef).toBe('release-2026');
+      expect(result.resolvedRef).toBe('release-2026');
+    });
+
+    it('Git URL - scp-like with trailing @ref', () => {
+      const result = parseSource('git@git.example.com:team/skill-pack.git@feature/add-skill');
+      expect(result.type).toBe('git');
+      expect(result.url).toBe('git@git.example.com:team/skill-pack.git');
+      expect(result.ref).toBe('feature/add-skill');
+      expect(result.declaredRef).toBe('feature/add-skill');
+      expect(result.resolvedRef).toBe('feature/add-skill');
+    });
+
     it('Git URL - custom host', () => {
       const result = parseSource('https://git.example.com/owner/repo.git');
       expect(result.type).toBe('git');
@@ -236,6 +254,17 @@ describe('parseSource', () => {
       expect(result.url).toBe('https://github.com/owner/repo.git');
       expect(result.skillFilter).toBe('my-skill');
       expect(result.ref).toBeUndefined();
+    });
+  });
+
+  describe('GitHub repo @ref URL tests', () => {
+    it('GitHub URL - .git with trailing @ref', () => {
+      const result = parseSource('https://github.com/owner/repo.git@v1.2.3');
+      expect(result.type).toBe('github');
+      expect(result.url).toBe('https://github.com/owner/repo.git');
+      expect(result.ref).toBe('v1.2.3');
+      expect(result.declaredRef).toBe('v1.2.3');
+      expect(result.resolvedRef).toBe('v1.2.3');
     });
   });
 });
