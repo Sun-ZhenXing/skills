@@ -9,6 +9,7 @@ describe('source-parser', () => {
         type: 'gitlab',
         url: 'https://git.corp.com/group/subgroup/project.git',
         ref: 'main',
+        resolvedRef: 'main',
         subpath: 'src',
       });
     });
@@ -19,6 +20,7 @@ describe('source-parser', () => {
         type: 'gitlab',
         url: 'https://gitlab.example.com/org/repo.git',
         ref: 'v1.0',
+        resolvedRef: 'v1.0',
       });
     });
 
@@ -57,6 +59,36 @@ describe('source-parser', () => {
       });
     });
 
+    it('extracts #ref from generic git URL and normalizes source URL', () => {
+      const result = parseSource('https://git.mycompany.com/my-group/my-repo.git#release/v2');
+      expect(result).toEqual({
+        type: 'git',
+        url: 'https://git.mycompany.com/my-group/my-repo.git',
+        ref: 'release/v2',
+        resolvedRef: 'release/v2',
+      });
+    });
+
+    it('extracts ref query parameter from generic git URL', () => {
+      const result = parseSource('https://git.mycompany.com/my-group/my-repo.git?ref=main');
+      expect(result).toEqual({
+        type: 'git',
+        url: 'https://git.mycompany.com/my-group/my-repo.git',
+        ref: 'main',
+        resolvedRef: 'main',
+      });
+    });
+
+    it('extracts #ref from scp-like ssh locator', () => {
+      const result = parseSource('git@git.mycompany.com:my-group/my-repo.git#feature/test');
+      expect(result).toEqual({
+        type: 'git',
+        url: 'git@git.mycompany.com:my-group/my-repo.git',
+        ref: 'feature/test',
+        resolvedRef: 'feature/test',
+      });
+    });
+
     it('prevents false positives for generic URLs (falls through to well-known)', () => {
       const result = parseSource('https://google.com/search/result');
       expect(result.type).toBe('well-known');
@@ -88,7 +120,17 @@ describe('source-parser', () => {
         type: 'github',
         url: 'https://github.com/owner/repo.git',
         ref: 'main',
+        resolvedRef: 'main',
         subpath: 'path',
+      });
+    });
+
+    it('keeps @skill shorthand priority over generic git ref parsing', () => {
+      const result = parseSource('owner/repo@my-skill');
+      expect(result).toEqual({
+        type: 'github',
+        url: 'https://github.com/owner/repo.git',
+        skillFilter: 'my-skill',
       });
     });
   });

@@ -118,6 +118,52 @@ function isDirectSkillUrl(input: string): boolean {
   return true;
 }
 
+function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: string } | null {
+  // scp-like syntax: git@host:org/repo.git[#ref]
+  const scpLikeMatch = input.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
+  if (scpLikeMatch) {
+    const [, base, ref] = scpLikeMatch;
+    return {
+      normalizedUrl: base!,
+      ref,
+    };
+  }
+
+  if (!/^(https?|ssh|git):\/\//.test(input)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(input);
+
+    // For HTTP(S), only treat .git paths as generic git repos.
+    // This prevents classifying arbitrary websites as git repositories.
+    if (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      !parsed.pathname.endsWith('.git')
+    ) {
+      return null;
+    }
+
+    const refFromQuery = parsed.searchParams.get('ref') ?? undefined;
+    const refFromHash = parsed.hash ? parsed.hash.slice(1) : undefined;
+    const ref = refFromQuery || refFromHash;
+
+    // Normalize by dropping tracking-only selectors
+    if (parsed.searchParams.has('ref')) {
+      parsed.searchParams.delete('ref');
+    }
+    parsed.hash = '';
+
+    return {
+      normalizedUrl: parsed.toString(),
+      ref,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Parse a source string into a structured format
  * Supports: local paths, GitHub URLs, GitLab URLs, GitHub shorthand, direct skill.md URLs, and direct git URLs
@@ -161,6 +207,7 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       ref,
+      resolvedRef: ref,
       subpath,
     };
   }
@@ -173,6 +220,7 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       ref,
+      resolvedRef: ref,
     };
   }
 
@@ -200,6 +248,7 @@ export function parseSource(input: string): ParsedSource {
         type: 'gitlab',
         url: `${protocol}://${hostname}/${repoPath.replace(/\.git$/, '')}.git`,
         ref,
+        resolvedRef: ref,
         subpath,
       };
     }
@@ -214,6 +263,7 @@ export function parseSource(input: string): ParsedSource {
         type: 'gitlab',
         url: `${protocol}://${hostname}/${repoPath.replace(/\.git$/, '')}.git`,
         ref,
+        resolvedRef: ref,
       };
     }
   }
@@ -253,6 +303,17 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       subpath,
+    };
+  }
+
+  // Generic Git URLs (HTTPS/SSH/scp-like)
+  const genericGitSource = parseGenericGitSource(input);
+  if (genericGitSource) {
+    return {
+      type: 'git',
+      url: genericGitSource.normalizedUrl,
+      ref: genericGitSource.ref,
+      resolvedRef: genericGitSource.ref,
     };
   }
 

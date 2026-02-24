@@ -67,6 +67,8 @@ export interface ParsedSource {
   subpath?: string;
   localPath?: string;
   ref?: string;
+  /** Resolved git ref used for checkout (branch/tag/commit) */
+  resolvedRef?: string;
   /** Skill name extracted from @skill syntax (e.g., owner/repo@skill-name) */
   skillFilter?: string;
 }

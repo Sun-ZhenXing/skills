@@ -285,6 +285,7 @@ interface SkillLockEntry {
   sourceType: string;
   sourceUrl: string;
   skillPath?: string;
+  resolvedRef?: string;
   /** GitHub tree SHA for the entire skill folder (v3) */
   skillFolderHash: string;
   installedAt: string;
@@ -369,15 +370,29 @@ async function runCheck(args: string[] = []): Promise<void> {
 
   // Group skills by source (owner/repo) to batch GitHub API calls
   const skillsBySource = new Map<string, Array<{ name: string; entry: SkillLockEntry }>>();
-  let skippedCount = 0;
+  const manualUpdateSkills: Array<{ name: string; source: string; sourceType: string }> = [];
 
   for (const skillName of skillNames) {
     const entry = lock.skills[skillName];
     if (!entry) continue;
 
-    // Only check GitHub-sourced skills with folder hash
-    if (entry.sourceType !== 'github' || !entry.skillFolderHash || !entry.skillPath) {
-      skippedCount++;
+    // Non-GitHub sources currently do not support automatic freshness detection
+    if (entry.sourceType !== 'github') {
+      manualUpdateSkills.push({
+        name: skillName,
+        source: entry.source,
+        sourceType: entry.sourceType,
+      });
+      continue;
+    }
+
+    // GitHub entries without required metadata cannot be checked automatically
+    if (!entry.skillFolderHash || !entry.skillPath) {
+      manualUpdateSkills.push({
+        name: skillName,
+        source: entry.source,
+        sourceType: entry.sourceType,
+      });
       continue;
     }
 
@@ -386,37 +401,42 @@ async function runCheck(args: string[] = []): Promise<void> {
     skillsBySource.set(entry.source, existing);
   }
 
-  const totalSkills = skillNames.length - skippedCount;
-  if (totalSkills === 0) {
-    console.log(`${DIM}No GitHub skills to check.${RESET}`);
-    return;
-  }
+  const totalSkills = Array.from(skillsBySource.values()).reduce(
+    (acc, skills) => acc + skills.length,
+    0
+  );
 
-  console.log(`${DIM}Checking ${totalSkills} skill(s) for updates...${RESET}`);
+  if (totalSkills > 0) {
+    console.log(`${DIM}Checking ${totalSkills} GitHub skill(s) for updates...${RESET}`);
+  } else {
+    console.log(`${DIM}No GitHub skills eligible for automatic update checks.${RESET}`);
+  }
 
   const updates: Array<{ name: string; source: string }> = [];
   const errors: Array<{ name: string; source: string; error: string }> = [];
 
   // Check each source (one API call per repo)
-  for (const [source, skills] of skillsBySource) {
-    for (const { name, entry } of skills) {
-      try {
-        const latestHash = await fetchSkillFolderHash(source, entry.skillPath!, token);
+  if (totalSkills > 0) {
+    for (const [source, skills] of skillsBySource) {
+      for (const { name, entry } of skills) {
+        try {
+          const latestHash = await fetchSkillFolderHash(source, entry.skillPath!, token);
 
-        if (!latestHash) {
-          errors.push({ name, source, error: 'Could not fetch from GitHub' });
-          continue;
-        }
+          if (!latestHash) {
+            errors.push({ name, source, error: 'Could not fetch from GitHub' });
+            continue;
+          }
 
-        if (latestHash !== entry.skillFolderHash) {
-          updates.push({ name, source });
+          if (latestHash !== entry.skillFolderHash) {
+            updates.push({ name, source });
+          }
+        } catch (err) {
+          errors.push({
+            name,
+            source,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
         }
-      } catch (err) {
-        errors.push({
-          name,
-          source,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
       }
     }
   }
@@ -441,6 +461,22 @@ async function runCheck(args: string[] = []): Promise<void> {
   if (errors.length > 0) {
     console.log();
     console.log(`${DIM}Could not check ${errors.length} skill(s) (may need reinstall)${RESET}`);
+  }
+
+  if (manualUpdateSkills.length > 0) {
+    console.log();
+    console.log(
+      `${DIM}${manualUpdateSkills.length} skill(s) require manual update (automatic freshness check unavailable)${RESET}`
+    );
+    for (const skill of manualUpdateSkills.slice(0, 5)) {
+      console.log(`  ${DIM}- ${skill.name} (${skill.sourceType})${RESET}`);
+    }
+    if (manualUpdateSkills.length > 5) {
+      console.log(`  ${DIM}...and ${manualUpdateSkills.length - 5} more${RESET}`);
+    }
+    console.log(
+      `${DIM}Reinstall manually with${RESET} ${TEXT}npx skills add <source> -g${RESET} ${DIM}when you want to refresh.${RESET}`
+    );
   }
 
   // Track telemetry
@@ -471,14 +507,21 @@ async function runUpdate(): Promise<void> {
 
   // Find skills that need updates by checking GitHub directly
   const updates: Array<{ name: string; source: string; entry: SkillLockEntry }> = [];
+  const manualUpdateSkills: Array<{ name: string; sourceType: string }> = [];
   let checkedCount = 0;
 
   for (const skillName of skillNames) {
     const entry = lock.skills[skillName];
     if (!entry) continue;
 
-    // Only check GitHub-sourced skills with folder hash
-    if (entry.sourceType !== 'github' || !entry.skillFolderHash || !entry.skillPath) {
+    if (entry.sourceType !== 'github') {
+      manualUpdateSkills.push({ name: skillName, sourceType: entry.sourceType });
+      continue;
+    }
+
+    // GitHub entries without required metadata cannot be checked automatically
+    if (!entry.skillFolderHash || !entry.skillPath) {
+      manualUpdateSkills.push({ name: skillName, sourceType: entry.sourceType });
       continue;
     }
 
@@ -496,7 +539,13 @@ async function runUpdate(): Promise<void> {
   }
 
   if (checkedCount === 0) {
-    console.log(`${DIM}No skills to check.${RESET}`);
+    if (manualUpdateSkills.length > 0) {
+      console.log(
+        `${DIM}No GitHub skills eligible for automatic updates. ${manualUpdateSkills.length} skill(s) require manual update.${RESET}`
+      );
+    } else {
+      console.log(`${DIM}No skills to check.${RESET}`);
+    }
     return;
   }
 
@@ -534,7 +583,8 @@ async function runUpdate(): Promise<void> {
       // Convert git URL to tree URL with path
       // https://github.com/owner/repo.git -> https://github.com/owner/repo/tree/main/path
       installUrl = update.entry.sourceUrl.replace(/\.git$/, '').replace(/\/$/, '');
-      installUrl = `${installUrl}/tree/main/${skillFolder}`;
+      const refForUpdate = update.entry.resolvedRef || 'main';
+      installUrl = `${installUrl}/tree/${refForUpdate}/${skillFolder}`;
     }
 
     // Use skills CLI to reinstall with -g -y flags
@@ -557,6 +607,12 @@ async function runUpdate(): Promise<void> {
   }
   if (failCount > 0) {
     console.log(`${DIM}Failed to update ${failCount} skill(s)${RESET}`);
+  }
+
+  if (manualUpdateSkills.length > 0) {
+    console.log(
+      `${DIM}${manualUpdateSkills.length} non-GitHub skill(s) were skipped and require manual update.${RESET}`
+    );
   }
 
   // Track telemetry

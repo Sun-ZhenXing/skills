@@ -1654,9 +1654,17 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
 
     if (skills.length === 0) {
       spinner.stop(pc.red('No skills found'));
-      p.outro(
-        pc.red('No valid skills found. Skills require a SKILL.md with name and description.')
-      );
+      if (parsed.type === 'local') {
+        p.outro(
+          pc.red('No valid skills found. Skills require a SKILL.md with name and description.')
+        );
+      } else {
+        p.outro(
+          pc.red(
+            'Repository structure is invalid for skills installation: no valid SKILL.md found with name and description.'
+          )
+        );
+      }
       await cleanup(tempDir);
       process.exit(1);
     }
@@ -2035,8 +2043,10 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
       }
     }
 
+    const lockSource = normalizedSource || parsed.url;
+
     // Add to skill lock file for update tracking (only for global installs)
-    if (successful.length > 0 && installGlobally && normalizedSource) {
+    if (successful.length > 0 && installGlobally) {
       const successfulSkillNames = new Set(successful.map((r) => r.skill));
       for (const skill of selectedSkills) {
         const skillDisplayName = getSkillDisplayName(skill);
@@ -2045,16 +2055,17 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
             // Fetch the folder hash from GitHub Trees API
             let skillFolderHash = '';
             const skillPathValue = skillFiles[skill.name];
-            if (parsed.type === 'github' && skillPathValue) {
+            if (parsed.type === 'github' && normalizedSource && skillPathValue) {
               const hash = await fetchSkillFolderHash(normalizedSource, skillPathValue);
               if (hash) skillFolderHash = hash;
             }
 
             await addSkillToLock(skill.name, {
-              source: normalizedSource,
+              source: lockSource,
               sourceType: parsed.type,
               sourceUrl: parsed.url,
               skillPath: skillPathValue,
+              resolvedRef: parsed.resolvedRef ?? parsed.ref,
               skillFolderHash,
             });
           } catch {
@@ -2077,6 +2088,7 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
               {
                 source: normalizedSource || parsed.url,
                 sourceType: parsed.type,
+                resolvedRef: parsed.resolvedRef ?? parsed.ref,
                 computedHash,
               },
               cwd

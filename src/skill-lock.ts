@@ -20,6 +20,8 @@ export interface SkillLockEntry {
   sourceUrl: string;
   /** Subpath within the source repo, if applicable */
   skillPath?: string;
+  /** Resolved git ref used during installation (branch/tag/commit) */
+  resolvedRef?: string;
   /**
    * GitHub tree SHA for the entire skill folder.
    * This hash changes when ANY file in the skill folder changes.

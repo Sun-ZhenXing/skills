@@ -94,6 +94,29 @@ describe('local-lock', () => {
         await rm(dir, { recursive: true, force: true });
       }
     });
+
+    it('reads lock entries that include resolvedRef metadata', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'lock-test-'));
+      try {
+        const content = {
+          version: 1,
+          skills: {
+            'git-skill': {
+              source: 'git@git.example.com:team/skills.git',
+              sourceType: 'git',
+              resolvedRef: 'release/2026',
+              computedHash: 'abc123',
+            },
+          },
+        };
+        await writeFile(join(dir, 'skills-lock.json'), JSON.stringify(content), 'utf-8');
+
+        const lock = await readLocalLock(dir);
+        expect(lock.skills['git-skill']).toEqual(content.skills['git-skill']);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('writeLocalLock', () => {
@@ -196,6 +219,27 @@ describe('local-lock', () => {
         expect(Object.keys(lock.skills)).toHaveLength(2);
         expect(lock.skills['skill-a']!.computedHash).toBe('aaa');
         expect(lock.skills['skill-b']!.computedHash).toBe('bbb');
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('writes optional resolvedRef metadata when provided', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'lock-test-'));
+      try {
+        await addSkillToLocalLock(
+          'git-skill',
+          {
+            source: 'https://git.example.com/team/skills.git',
+            sourceType: 'git',
+            resolvedRef: 'v1.0.0',
+            computedHash: 'hash123',
+          },
+          dir
+        );
+
+        const lock = await readLocalLock(dir);
+        expect(lock.skills['git-skill']?.resolvedRef).toBe('v1.0.0');
       } finally {
         await rm(dir, { recursive: true, force: true });
       }

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { runCliOutput, stripLogo, hasLogo } from './test-utils.ts';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { runCli, runCliOutput, stripLogo, hasLogo } from './test-utils.ts';
 
 describe('skills CLI', () => {
   describe('--help', () => {
@@ -84,5 +86,78 @@ describe('skills CLI', () => {
       const output = runCliOutput(['update']);
       expect(hasLogo(output)).toBe(false);
     }, 60000);
+  });
+
+  describe('non-GitHub update behavior', () => {
+    function createHomeWithLock(lockData: unknown): string {
+      const homeDir = mkdtempSync(join(tmpdir(), 'skills-cli-home-'));
+      const agentsDir = join(homeDir, '.agents');
+      mkdirSync(agentsDir, { recursive: true });
+      writeFileSync(
+        join(agentsDir, '.skill-lock.json'),
+        JSON.stringify(lockData, null, 2),
+        'utf-8'
+      );
+      return homeDir;
+    }
+
+    it('check shows manual-update guidance for non-GitHub sources', () => {
+      const lock = {
+        version: 3,
+        skills: {
+          'private-skill': {
+            source: 'git@git.example.com:team/private-skills.git',
+            sourceType: 'git',
+            sourceUrl: 'git@git.example.com:team/private-skills.git',
+            skillFolderHash: '',
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      };
+
+      const homeDir = createHomeWithLock(lock);
+      try {
+        const result = runCli(['check'], process.cwd(), {
+          HOME: homeDir,
+          USERPROFILE: homeDir,
+          HOMEDRIVE: 'C:',
+          HOMEPATH: '\\',
+        });
+        expect(result.stdout).toContain('manual update');
+        expect(result.stdout).toContain('private-skill');
+      } finally {
+        rmSync(homeDir, { recursive: true, force: true });
+      }
+    });
+
+    it('update reports non-GitHub entries as manually updatable', () => {
+      const lock = {
+        version: 3,
+        skills: {
+          'private-skill': {
+            source: 'git@git.example.com:team/private-skills.git',
+            sourceType: 'git',
+            sourceUrl: 'git@git.example.com:team/private-skills.git',
+            skillFolderHash: '',
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      };
+
+      const homeDir = createHomeWithLock(lock);
+      try {
+        const result = runCli(['update'], process.cwd(), {
+          HOME: homeDir,
+          USERPROFILE: homeDir,
+          HOMEDRIVE: 'C:',
+          HOMEPATH: '\\',
+        });
+        expect(result.stdout).toContain('require manual update');
+      } finally {
+        rmSync(homeDir, { recursive: true, force: true });
+      }
+    });
   });
 });

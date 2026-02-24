@@ -17,6 +17,8 @@ export interface LocalSkillLockEntry {
   source: string;
   /** The provider/source type (e.g., "github", "node_modules", "local") */
   sourceType: string;
+  /** Resolved git ref used during installation (branch/tag/commit), when available */
+  resolvedRef?: string;
   /**
    * SHA-256 hash computed from all files in the skill folder.
    * Unlike the global lock which uses GitHub tree SHA, the local lock

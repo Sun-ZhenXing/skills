@@ -203,6 +203,40 @@ describe('parseSource', () => {
       expect(result.type).toBe('git');
       expect(result.url).toBe('https://git.example.com/owner/repo.git');
     });
+
+    it('Git URL - HTTPS with #ref', () => {
+      const result = parseSource('https://git.example.com/team/skill-pack.git#release-2026');
+      expect(result.type).toBe('git');
+      expect(result.url).toBe('https://git.example.com/team/skill-pack.git');
+      expect(result.ref).toBe('release-2026');
+      expect(result.resolvedRef).toBe('release-2026');
+    });
+
+    it('Git URL - HTTPS with ?ref=', () => {
+      const result = parseSource('https://git.example.com/team/skill-pack.git?ref=v1.2.3');
+      expect(result.type).toBe('git');
+      expect(result.url).toBe('https://git.example.com/team/skill-pack.git');
+      expect(result.ref).toBe('v1.2.3');
+      expect(result.resolvedRef).toBe('v1.2.3');
+    });
+
+    it('Git URL - scp-like with #ref', () => {
+      const result = parseSource('git@git.example.com:team/skill-pack.git#feature/add-skill');
+      expect(result.type).toBe('git');
+      expect(result.url).toBe('git@git.example.com:team/skill-pack.git');
+      expect(result.ref).toBe('feature/add-skill');
+      expect(result.resolvedRef).toBe('feature/add-skill');
+    });
+  });
+
+  describe('GitHub shorthand priority', () => {
+    it('keeps owner/repo@skill parsing as github shorthand, not generic git ref', () => {
+      const result = parseSource('owner/repo@my-skill');
+      expect(result.type).toBe('github');
+      expect(result.url).toBe('https://github.com/owner/repo.git');
+      expect(result.skillFilter).toBe('my-skill');
+      expect(result.ref).toBeUndefined();
+    });
   });
 });
 
