@@ -2046,7 +2046,12 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
       }
     }
 
-    const lockSource = normalizedSource || parsed.url;
+    // For GitHub/GitLab, use owner/repo shorthand for cleaner lock files
+    // For generic git, use the full URL to preserve host information
+    const lockSource =
+      parsed.type === 'github' || parsed.type === 'gitlab'
+        ? normalizedSource || parsed.url
+        : parsed.url;
 
     // Add to skill lock file for update tracking (only for global installs)
     if (successful.length > 0 && installGlobally) {
@@ -2091,7 +2096,7 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
             await addSkillToLocalLock(
               skill.name,
               {
-                source: normalizedSource || parsed.url,
+                source: lockSource,
                 sourceType: parsed.type,
                 declaredRef: parsed.declaredRef ?? parsed.ref,
                 resolvedRef: parsed.resolvedRef ?? parsed.ref,
