@@ -6,12 +6,19 @@ import { basename, join, dirname } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
 import { fileURLToPath } from 'url';
+import * as p from '@clack/prompts';
 import { runAdd, parseAddOptions, initTelemetry } from './add.ts';
 import { runFind } from './find.ts';
 import { runInstallFromLock } from './install.ts';
 import { runList } from './list.ts';
 import { removeCommand, parseRemoveOptions } from './remove.ts';
-import { runSync, parseSyncOptions } from './sync.ts';
+import { runSync, parseSyncOptions as parseExperimentalSyncOptions } from './sync.ts';
+import {
+  syncAllSkills,
+  detectSyncStatus,
+  parseSyncOptions,
+  type SyncOptions,
+} from './sync-lock.ts';
 import { track } from './telemetry.ts';
 import { fetchSkillFolderHash, getGitHubToken } from './skill-lock.ts';
 import {
@@ -106,10 +113,13 @@ function showBanner(): void {
   );
   console.log();
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills experimental_install${RESET} ${DIM}Restore from skills-lock.json${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx skills sync${RESET}                 ${DIM}Sync skills from skills-lock.json${RESET}`
   );
   console.log(
     `  ${DIM}$${RESET} ${TEXT}npx skills init ${DIM}[name]${RESET}          ${DIM}Create a new skill${RESET}`
+  );
+  console.log(
+    `  ${DIM}$${RESET} ${TEXT}npx skills experimental_install${RESET} ${DIM}Restore from skills-lock.json${RESET}`
   );
   console.log(
     `  ${DIM}$${RESET} ${TEXT}npx skills experimental_sync${RESET}    ${DIM}Sync skills from node_modules${RESET}`
@@ -144,8 +154,9 @@ ${BOLD}Updates:${RESET}
   update               Update all skills to latest versions
 
 ${BOLD}Project:${RESET}
-  experimental_install Restore skills from skills-lock.json
+  sync [skills...]     Sync skills from skills-lock.json
   init [name]          Initialize a skill (creates <name>/SKILL.md or ./SKILL.md)
+  experimental_install Restore skills from skills-lock.json (legacy)
   experimental_sync    Sync skills from node_modules into agent directories
 
 ${BOLD}Add Options:${RESET}
@@ -165,6 +176,12 @@ ${BOLD}Remove Options:${RESET}
   -y, --yes              Skip confirmation prompts
   --all                  Shorthand for --skill '*' --agent '*' -y
   
+${BOLD}Sync Options:${RESET}
+  -d, --dry-run          Preview changes without applying them
+  -f, --force            Force reinstallation of all skills
+  -y, --yes              Skip confirmation prompts
+  -g, --global           Sync global skills
+
 ${BOLD}Experimental Sync Options:${RESET}
   -a, --agent <agents>   Specify agents to install to (use '*' for all agents)
   -y, --yes              Skip confirmation prompts
@@ -192,7 +209,12 @@ ${BOLD}Examples:${RESET}
   ${DIM}$${RESET} skills find typescript               ${DIM}# search by keyword${RESET}
   ${DIM}$${RESET} skills check
   ${DIM}$${RESET} skills update
-  ${DIM}$${RESET} skills experimental_install            ${DIM}# restore from skills-lock.json${RESET}
+  ${DIM}$${RESET} skills sync                           ${DIM}# sync all skills from lock file${RESET}
+  ${DIM}$${RESET} skills sync --dry-run                 ${DIM}# preview changes${RESET}
+  ${DIM}$${RESET} skills sync --force                   ${DIM}# force reinstall all skills${RESET}
+  ${DIM}$${RESET} skills sync my-skill                  ${DIM}# sync specific skill${RESET}
+  ${DIM}$${RESET} skills sync -y                        ${DIM}# sync without prompts${RESET}
+  ${DIM}$${RESET} skills experimental_install            ${DIM}# restore from skills-lock.json (legacy)${RESET}
   ${DIM}$${RESET} skills init my-skill
   ${DIM}$${RESET} skills experimental_sync              ${DIM}# sync from node_modules${RESET}
   ${DIM}$${RESET} skills experimental_sync -y           ${DIM}# sync without prompts${RESET}
@@ -886,6 +908,212 @@ async function runUpdate(): Promise<void> {
 }
 
 // ============================================
+// Sync Command (from lock file)
+// ============================================
+
+async function runSyncCommand(args: string[]): Promise<void> {
+  const options = parseSyncOptions(args);
+
+  // Check for help flag
+  if (args.includes('--help') || args.includes('-h')) {
+    showSyncHelp();
+    return;
+  }
+
+  showLogo();
+  console.log();
+
+  // Detect sync status
+  const spinner = p.spinner();
+  spinner.start('Checking skill status...');
+
+  let statusResult;
+  try {
+    statusResult = await detectSyncStatus(options);
+    spinner.stop('Skill status check complete');
+  } catch (error) {
+    spinner.stop('Failed to check skill status');
+    console.error(`${DIM}Error: ${error instanceof Error ? error.message : String(error)}${RESET}`);
+    process.exit(1);
+  }
+
+  // Filter to specific skills if provided
+  let missing = statusResult.missing;
+  let modified = statusResult.modified;
+  let upToDate = statusResult.upToDate;
+  let orphaned = statusResult.orphaned;
+
+  if (options.skillNames && options.skillNames.length > 0) {
+    const skillSet = new Set(options.skillNames);
+    missing = missing.filter((s) => skillSet.has(s.name));
+    modified = modified.filter((s) => skillSet.has(s.name));
+    upToDate = upToDate.filter((s) => skillSet.has(s.name));
+    // Orphaned skills are not filtered as they're not in the lock file
+  }
+
+  // Display status
+  console.log();
+  console.log(`${BOLD}Sync Status:${RESET}`);
+  console.log();
+
+  if (missing.length > 0) {
+    console.log(`  ${TEXT}Missing:${RESET} ${missing.length} skill(s) need to be installed`);
+    for (const skill of missing) {
+      console.log(`    ${DIM}- ${skill.name}${RESET}`);
+    }
+    console.log();
+  }
+
+  if (modified.length > 0) {
+    console.log(`  ${TEXT}Modified:${RESET} ${modified.length} skill(s) need to be updated`);
+    for (const skill of modified) {
+      console.log(`    ${DIM}- ${skill.name}${RESET}`);
+    }
+    console.log();
+  }
+
+  if (upToDate.length > 0) {
+    console.log(`  ${TEXT}Up to date:${RESET} ${upToDate.length} skill(s)`);
+    if (options.force) {
+      console.log(`    ${DIM}(will be reinstalled due to --force)${RESET}`);
+    }
+    console.log();
+  }
+
+  if (orphaned.length > 0) {
+    console.log(`  ${DIM}Orphaned:${RESET} ${orphaned.length} skill(s) not in lock file`);
+    for (const skill of orphaned) {
+      console.log(`    ${DIM}- ${skill.name}${RESET}`);
+    }
+    console.log();
+  }
+
+  // Determine if there are any changes to make
+  const hasChanges =
+    missing.length > 0 || modified.length > 0 || (options.force && upToDate.length > 0);
+
+  if (!hasChanges) {
+    console.log(`${TEXT}✓ All skills are up to date${RESET}`);
+    console.log();
+    return;
+  }
+
+  // Dry run mode - just preview
+  if (options.dryRun) {
+    console.log(`${DIM}Dry run mode - no changes will be made${RESET}`);
+    console.log();
+    console.log(`${TEXT}Would install:${RESET} ${missing.length} skill(s)`);
+    console.log(
+      `${TEXT}Would update:${RESET} ${modified.length + (options.force ? upToDate.length : 0)} skill(s)`
+    );
+    console.log();
+    return;
+  }
+
+  // Confirm with user unless --yes flag
+  if (!options.yes) {
+    const totalChanges = missing.length + modified.length + (options.force ? upToDate.length : 0);
+    const confirmed = await p.confirm({
+      message: `Proceed with syncing ${totalChanges} skill(s)?`,
+      initialValue: true,
+    });
+
+    if (p.isCancel(confirmed) || !confirmed) {
+      console.log(`${DIM}Sync cancelled${RESET}`);
+      return;
+    }
+  }
+
+  // Perform sync
+  console.log();
+  const syncSpinner = p.spinner();
+  syncSpinner.start('Synchronizing skills...');
+
+  const result = await syncAllSkills(options);
+
+  if (result.success) {
+    syncSpinner.stop('Skills synchronized successfully');
+  } else {
+    syncSpinner.stop('Some skills failed to synchronize');
+  }
+
+  // Display results
+  console.log();
+  if (result.installed.length > 0) {
+    console.log(`${TEXT}✓ Installed:${RESET} ${result.installed.length} skill(s)`);
+    for (const name of result.installed) {
+      console.log(`  ${DIM}- ${name}${RESET}`);
+    }
+  }
+
+  if (result.updated.length > 0) {
+    console.log(`${TEXT}✓ Updated:${RESET} ${result.updated.length} skill(s)`);
+    for (const name of result.updated) {
+      console.log(`  ${DIM}- ${name}${RESET}`);
+    }
+  }
+
+  if (result.upToDate.length > 0 && !options.force) {
+    console.log(`${TEXT}✓ Up to date:${RESET} ${result.upToDate.length} skill(s)`);
+  }
+
+  if (result.failed.length > 0) {
+    console.log();
+    console.log(`${DIM}✗ Failed:${RESET} ${result.failed.length} skill(s)`);
+    for (const { name, error } of result.failed) {
+      console.log(`  ${DIM}- ${name}: ${error}${RESET}`);
+    }
+  }
+
+  if (result.orphaned.length > 0) {
+    console.log();
+    console.log(`${DIM}Orphaned:${RESET} ${result.orphaned.length} skill(s) (not in lock file)`);
+  }
+
+  // Track telemetry
+  track({
+    event: 'sync',
+    skillCount: String(result.installed.length + result.updated.length),
+    successCount: String(result.installed.length + result.updated.length),
+    failCount: String(result.failed.length),
+  });
+
+  console.log();
+}
+
+function showSyncHelp(): void {
+  console.log(`
+${BOLD}Usage:${RESET} skills sync [skills...] [options]
+
+${BOLD}Description:${RESET}
+  Synchronize local skills with the skills-lock.json file.
+  This ensures your local skills match the lock file exactly.
+
+${BOLD}Arguments:${RESET}
+  skills            Optional skill names to sync (space-separated)
+                    If omitted, all skills in the lock file are synced
+
+${BOLD}Options:${RESET}
+  -d, --dry-run      Preview changes without applying them
+  -f, --force        Force reinstallation of all skills
+  -y, --yes          Skip confirmation prompts
+  -g, --global       Sync global skills instead of project skills
+  -h, --help         Show this help message
+
+${BOLD}Examples:${RESET}
+  ${DIM}$${RESET} skills sync                           ${DIM}# sync all skills${RESET}
+  ${DIM}$${RESET} skills sync --dry-run                 ${DIM}# preview changes${RESET}
+  ${DIM}$${RESET} skills sync --force                   ${DIM}# force reinstall all${RESET}
+  ${DIM}$${RESET} skills sync my-skill                  ${DIM}# sync specific skill${RESET}
+  ${DIM}$${RESET} skills sync skill1 skill2             ${DIM}# sync multiple skills${RESET}
+  ${DIM}$${RESET} skills sync -y                        ${DIM}# sync without prompts${RESET}
+  ${DIM}$${RESET} skills sync -g                        ${DIM}# sync global skills${RESET}
+
+Discover more skills at ${TEXT}https://skills.sh/${RESET}
+`);
+}
+
+// ============================================
 // Main
 // ============================================
 
@@ -939,10 +1167,14 @@ async function main(): Promise<void> {
       const { skills, options: removeOptions } = parseRemoveOptions(restArgs);
       await removeCommand(skills, removeOptions);
       break;
+    case 'sync': {
+      await runSyncCommand(restArgs);
+      break;
+    }
     case 'experimental_sync': {
       showLogo();
-      const { options: syncOptions } = parseSyncOptions(restArgs);
-      await runSync(restArgs, syncOptions);
+      const { options: experimentalSyncOptions } = parseExperimentalSyncOptions(restArgs);
+      await runSync(restArgs, experimentalSyncOptions);
       break;
     }
     case 'list':
