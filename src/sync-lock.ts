@@ -2,12 +2,14 @@ import { access, readdir, stat, cp, rm, mkdir } from 'fs/promises';
 import { join, basename } from 'path';
 import { spawn } from 'child_process';
 import { promisify } from 'util';
+import { tmpdir } from 'os';
 import type { LocalSkillLockEntry, LocalSkillLockFile } from './local-lock.ts';
 import { readLocalLock, writeLocalLock, computeSkillFolderHash } from './local-lock.ts';
 import { getCanonicalSkillsDir } from './installer.ts';
 import { AGENTS_DIR, SKILLS_SUBDIR } from './constants.ts';
 import { homedir } from 'os';
-import { resolveGitHubUrl } from './git.ts';
+import { cloneRepo, cleanupTempDir, resolveGitHubUrl } from './git.ts';
+import { discoverSkills } from './skills.ts';
 
 const execAsync = promisify(spawn);
 
@@ -231,6 +233,7 @@ export async function syncSkill(
 
 /**
  * Synchronize a skill from a git repository.
+ * Clones the repo to a temp directory, finds the skill, and copies only that skill.
  */
 async function syncGitSkill(
   name: string,
@@ -239,61 +242,31 @@ async function syncGitSkill(
 ): Promise<void> {
   // Resolve GitHub shorthand to full URL
   const gitUrl = resolveGitHubUrl(entry.source);
-  const ref = entry.resolvedRef || entry.declaredRef || 'HEAD';
+  const ref = entry.resolvedRef || entry.declaredRef;
 
-  return new Promise((resolve, reject) => {
-    const args = ['clone', '--depth', '1', gitUrl, skillPath];
+  // Clone to temp directory
+  const { tempDir } = await cloneRepo(gitUrl, ref);
 
-    // If a specific ref is provided, we need to do a full clone and checkout
-    if (ref !== 'HEAD' && entry.resolvedRevision) {
-      // Remove --depth 1 for specific ref checkout
-      args.splice(2, 2); // Remove '--depth', '1'
+  try {
+    // Discover skills in the cloned repo
+    const skills = await discoverSkills(tempDir, undefined, { includeInternal: false });
+
+    // Find the skill with matching name
+    const skill = skills.find((s) => s.name === name);
+    if (!skill) {
+      throw new Error(`Skill "${name}" not found in repository ${gitUrl}`);
     }
 
-    const gitProcess = spawn('git', args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    // Remove existing skill directory if it exists
+    await rm(skillPath, { recursive: true, force: true });
+    await mkdir(skillPath, { recursive: true });
 
-    let stderr = '';
-    gitProcess.stderr?.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    gitProcess.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Git clone failed: ${stderr || `exit code ${code}`}`));
-        return;
-      }
-
-      // Checkout specific ref if needed
-      if (ref !== 'HEAD' && entry.resolvedRevision) {
-        const checkoutProcess = spawn(
-          'git',
-          ['-C', skillPath, 'checkout', entry.resolvedRevision],
-          {
-            stdio: ['ignore', 'pipe', 'pipe'],
-          }
-        );
-
-        let checkoutStderr = '';
-        checkoutProcess.stderr?.on('data', (data) => {
-          checkoutStderr += data.toString();
-        });
-
-        checkoutProcess.on('close', (checkoutCode) => {
-          if (checkoutCode !== 0) {
-            reject(
-              new Error(`Git checkout failed: ${checkoutStderr || `exit code ${checkoutCode}`}`)
-            );
-            return;
-          }
-          resolve();
-        });
-      } else {
-        resolve();
-      }
-    });
-  });
+    // Copy only the skill directory to the target path
+    await cp(skill.path, skillPath, { recursive: true });
+  } finally {
+    // Clean up temp directory
+    await cleanupTempDir(tempDir);
+  }
 }
 
 /**
