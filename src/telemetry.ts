@@ -71,13 +71,21 @@ interface SyncTelemetryData {
   agents: string;
 }
 
+interface LockSyncTelemetryData {
+  event: 'sync';
+  skillCount: string;
+  successCount: string;
+  failCount: string;
+}
+
 type TelemetryData =
   | InstallTelemetryData
   | RemoveTelemetryData
   | CheckTelemetryData
   | UpdateTelemetryData
   | FindTelemetryData
-  | SyncTelemetryData;
+  | SyncTelemetryData
+  | LockSyncTelemetryData;
 
 let cliVersion: string | null = null;
 
