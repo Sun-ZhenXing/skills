@@ -132,6 +132,7 @@ ${BOLD}Manage Skills:${RESET}
   add <package>        Add a skill package (alias: a)
                        e.g. vercel-labs/agent-skills
                             https://github.com/vercel-labs/agent-skills
+  install [skills]     Install skills from skills-lock.json (alias: i)
   remove [skills]      Remove installed skills
   list, ls             List installed skills
   find [query]         Search for skills interactively
@@ -1130,8 +1131,6 @@ async function main(): Promise<void> {
       console.log();
       runInit(restArgs);
       break;
-    case 'i':
-    case 'install':
     case 'a':
     case 'add': {
       showLogo();
@@ -1150,6 +1149,7 @@ async function main(): Promise<void> {
       const { skills, options: removeOptions } = parseRemoveOptions(restArgs);
       await removeCommand(skills, removeOptions);
       break;
+    case 'i':
     case 'install':
       await runInstallCommand(restArgs);
       break;
