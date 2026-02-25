@@ -9,6 +9,8 @@ import { homedir, platform } from 'os';
 export interface Config {
   /** Default registry URL for skill discovery */
   registry?: string;
+  /** Registry URL for update checking service */
+  'update-registry'?: string;
   /** Default timeout for network operations (seconds) */
   timeout?: number;
   /** Enable/disable telemetry */
@@ -27,13 +29,15 @@ export interface ConfigValueWithSource {
 // ============================================
 
 const DEFAULT_CONFIG: Required<Config> = {
-  registry: 'https://add-skill.vercel.sh',
+  registry: 'https://skills.sh/',
+  'update-registry': 'https://add-skill.vercel.sh',
   timeout: 30,
   telemetry: true,
 };
 
 const ENV_VAR_MAP: Record<ConfigKey, string> = {
   registry: 'SKILLS_REGISTRY',
+  'update-registry': 'SKILLS_UPDATE_REGISTRY',
   timeout: 'SKILLS_TIMEOUT',
   telemetry: 'SKILLS_TELEMETRY',
 };
@@ -160,6 +164,14 @@ export function getConfigValue(key: ConfigKey): ConfigValueWithSource {
     return { value: fileValue, source: 'file' };
   }
 
+  // Backward compatibility: if update-registry is not set, check old registry key
+  if (key === 'update-registry' && config.registry !== undefined) {
+    console.warn(
+      `Warning: Config key 'registry' is deprecated for update checking. Use 'update-registry' instead.`
+    );
+    return { value: config.registry, source: 'file' };
+  }
+
   // Fall back to default
   return { value: DEFAULT_CONFIG[key], source: 'default' };
 }
@@ -221,13 +233,21 @@ export function validateConfigValue(
   value: string
 ): { valid: boolean; warning?: string } {
   switch (key) {
-    case 'registry': {
+    case 'registry':
+    case 'update-registry': {
       try {
         const url = new URL(value);
         if (!['http:', 'https:'].includes(url.protocol)) {
           return {
             valid: false,
             warning: `Invalid protocol: ${url.protocol}. Only http and https are supported.`,
+          };
+        }
+        // Warn about non-HTTPS URLs
+        if (url.protocol === 'http:') {
+          return {
+            valid: true,
+            warning: `Warning: Using non-HTTPS registry. Data will be transmitted insecurely.`,
           };
         }
         return { valid: true };

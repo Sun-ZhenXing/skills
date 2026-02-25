@@ -105,6 +105,7 @@ When installing interactively, you can choose:
 | ----------------------------- | ---------------------------------------------- |
 | `npx skills list`             | List installed skills (alias: `ls`)            |
 | `npx skills find [query]`     | Search for skills interactively or by keyword  |
+| `npx skills install`          | Install skills from skills-lock.json           |
 | `npx skills remove [skills]`  | Remove installed skills from agents            |
 | `npx skills check`            | Check for available skill updates              |
 | `npx skills update`           | Update all installed skills to latest versions |
@@ -157,6 +158,32 @@ npx skills init
 # Create a new skill in a subdirectory
 npx skills init my-skill
 ```
+
+### `skills install`
+
+Install skills from the `skills-lock.json` file. This ensures your local skills match the lock file exactly.
+
+```bash
+# Install all skills from skills-lock.json
+npx skills install
+
+# Install specific skills
+npx skills install my-skill
+
+# Preview changes without applying
+npx skills install --dry-run
+
+# Force reinstallation of all skills
+npx skills install --force
+
+# Install without confirmation prompts
+npx skills install -y
+
+# Install global skills
+npx skills install -g
+```
+
+**Note:** `skills sync` is deprecated. Use `skills install` instead.
 
 ### `skills remove`
 
@@ -219,11 +246,12 @@ npx skills config unset timeout
 
 #### Configuration Keys
 
-| Key        | Description                                        | Default                           | Environment Variable |
-| ---------- | -------------------------------------------------- | --------------------------------- | -------------------- |
-| `registry` | Default registry URL for skill discovery           | `https://add-skill.vercel.sh`     | `SKILLS_REGISTRY`    |
-| `timeout`  | Default timeout for network operations (seconds)   | `30`                              | `SKILLS_TIMEOUT`     |
-| `telemetry`| Enable/disable anonymous usage telemetry           | `true`                            | `SKILLS_TELEMETRY`   |
+| Key               | Description                                        | Default                           | Environment Variable      |
+| ----------------- | -------------------------------------------------- | --------------------------------- | ------------------------- |
+| `registry`        | Default registry URL for skill discovery           | `https://skills.sh/`              | `SKILLS_REGISTRY`         |
+| `update-registry` | Registry URL for skill update checking service     | `https://add-skill.vercel.sh`     | `SKILLS_UPDATE_REGISTRY`  |
+| `timeout`         | Default timeout for network operations (seconds)   | `30`                              | `SKILLS_TIMEOUT`          |
+| `telemetry`       | Enable/disable anonymous usage telemetry           | `true`                            | `SKILLS_TELEMETRY`        |
 
 #### Priority
 

@@ -2,6 +2,7 @@ import * as readline from 'readline';
 import { runAdd, parseAddOptions } from './add.ts';
 import { track } from './telemetry.ts';
 import { isRepoPrivate } from './source-parser.ts';
+import { getConfig } from './config.ts';
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
@@ -11,8 +12,20 @@ const CYAN = '\x1b[36m';
 const MAGENTA = '\x1b[35m';
 const YELLOW = '\x1b[33m';
 
-// API endpoint for skills search
-const SEARCH_API_BASE = process.env.SKILLS_API_URL || 'https://skills.sh';
+// Get API endpoint for skills search from config or environment
+function getSearchApiBase(): string {
+  // Environment variable takes highest priority
+  if (process.env.SKILLS_API_URL) {
+    return process.env.SKILLS_API_URL;
+  }
+  // Then check config
+  const registry = getConfig('registry');
+  if (typeof registry === 'string' && registry) {
+    return registry.replace(/\/$/, '');
+  }
+  // Default fallback
+  return 'https://skills.sh';
+}
 
 function formatInstalls(count: number): string {
   if (!count || count <= 0) return '';
@@ -31,7 +44,8 @@ export interface SearchSkill {
 // Search via API
 export async function searchSkillsAPI(query: string): Promise<SearchSkill[]> {
   try {
-    const url = `${SEARCH_API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=10`;
+    const searchApiBase = getSearchApiBase();
+    const url = `${searchApiBase}/api/search?q=${encodeURIComponent(query)}&limit=10`;
     const res = await fetch(url);
 
     if (!res.ok) return [];

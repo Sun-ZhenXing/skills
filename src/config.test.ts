@@ -183,7 +183,7 @@ describe('config', () => {
   describe('getConfigValue', () => {
     it('returns default value when not set', () => {
       const result = getConfigValue('registry');
-      expect(result.value).toBe('https://add-skill.vercel.sh');
+      expect(result.value).toBe('https://skills.sh/');
       expect(result.source).toBe('default');
     });
 
@@ -247,6 +247,7 @@ describe('config', () => {
       const result = getAllConfigValues();
 
       expect(result.registry.value).toBeDefined();
+      expect(result['update-registry'].value).toBeDefined();
       expect(result.timeout.value).toBeDefined();
       expect(result.telemetry.value).toBeDefined();
     });
@@ -277,7 +278,7 @@ describe('config', () => {
 
       expect(existed).toBe(true);
       const result = getConfigValue('registry');
-      expect(result.value).toBe('https://add-skill.vercel.sh'); // back to default
+      expect(result.value).toBe('https://skills.sh/'); // back to default
       expect(result.source).toBe('default');
     });
 
@@ -413,7 +414,8 @@ describe('config', () => {
 
   describe('getDefaultValue', () => {
     it('returns default registry', () => {
-      expect(getDefaultValue('registry')).toBe('https://add-skill.vercel.sh');
+      expect(getDefaultValue('registry')).toBe('https://skills.sh/');
+      expect(getDefaultValue('update-registry')).toBe('https://add-skill.vercel.sh');
     });
 
     it('returns default timeout', () => {

@@ -12,14 +12,13 @@ This file provides guidance to AI coding agents working on the `skills` CLI code
 | ----------------------------- | --------------------------------------------------- |
 | `skills`                      | Show banner with available commands                 |
 | `skills add <pkg>`            | Install skills from git repos, URLs, or local paths |
-| `skills experimental_install` | Restore skills from skills-lock.json                |
-| `skills experimental_sync`    | Sync skills from node_modules into agent dirs       |
+| `skills install`              | Install skills from skills-lock.json                |
 | `skills list`                 | List installed skills (alias: `ls`)                 |
 | `skills check`                | Check for available skill updates                   |
 | `skills update`               | Update all skills to latest versions                |
 | `skills init [name]`          | Create a new SKILL.md template                      |
 
-Aliases: `skills a` works for `add`. `skills i`, `skills install` (no args) restore from `skills-lock.json`. `skills ls` works for `list`. `skills experimental_install` restores from `skills-lock.json`. `skills experimental_sync` crawls `node_modules` for skills.
+Aliases: `skills a` works for `add`. `skills i` (no args) installs from `skills-lock.json`. `skills ls` works for `list`. `skills sync` is deprecated, use `install` instead.
 
 ## Architecture
 
@@ -97,7 +96,7 @@ If reading an older lock file version, it's wiped. Users must reinstall skills t
 | Feature                    | Implementation                              |
 | -------------------------- | ------------------------------------------- |
 | `skills add`               | `src/add.ts` - full implementation          |
-| `skills experimental_sync` | `src/sync.ts` - crawl node_modules          |
+| `skills install`           | `src/sync-lock.ts` - install from lock file |
 | `skills check`             | `POST /check-updates` API                   |
 | `skills update`            | `POST /check-updates` + reinstall per skill |
 
