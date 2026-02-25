@@ -7,6 +7,7 @@ import { readLocalLock, writeLocalLock, computeSkillFolderHash } from './local-l
 import { getCanonicalSkillsDir } from './installer.ts';
 import { AGENTS_DIR, SKILLS_SUBDIR } from './constants.ts';
 import { homedir } from 'os';
+import { resolveGitHubUrl } from './git.ts';
 
 const execAsync = promisify(spawn);
 
@@ -236,7 +237,8 @@ async function syncGitSkill(
   entry: LocalSkillLockEntry,
   skillPath: string
 ): Promise<void> {
-  const gitUrl = entry.source;
+  // Resolve GitHub shorthand to full URL
+  const gitUrl = resolveGitHubUrl(entry.source);
   const ref = entry.resolvedRef || entry.declaredRef || 'HEAD';
 
   return new Promise((resolve, reject) => {
