@@ -1,5 +1,23 @@
-const TELEMETRY_URL = 'https://add-skill.vercel.sh/t';
-const AUDIT_URL = 'https://add-skill.vercel.sh/audit';
+import { getConfig } from './config.ts';
+
+/**
+ * Get the base telemetry URL from config or default
+ */
+function getTelemetryBaseUrl(): string {
+  const registry = getConfig('registry');
+  if (typeof registry === 'string' && registry) {
+    return registry.replace(/\/$/, '');
+  }
+  return 'https://add-skill.vercel.sh';
+}
+
+function getTelemetryUrl(): string {
+  return `${getTelemetryBaseUrl()}/t`;
+}
+
+function getAuditUrl(): string {
+  return `${getTelemetryBaseUrl()}/audit`;
+}
 
 interface InstallTelemetryData {
   event: 'install';
@@ -77,7 +95,18 @@ function isCI(): boolean {
 }
 
 function isEnabled(): boolean {
-  return !process.env.DISABLE_TELEMETRY && !process.env.DO_NOT_TRACK;
+  // Check environment variables first
+  if (process.env.DISABLE_TELEMETRY || process.env.DO_NOT_TRACK) {
+    return false;
+  }
+
+  // Check config file setting
+  const telemetryConfig = getConfig('telemetry');
+  if (telemetryConfig === false) {
+    return false;
+  }
+
+  return true;
 }
 
 export function setVersion(version: string): void {
@@ -116,7 +145,7 @@ export async function fetchAuditData(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    const response = await fetch(`${AUDIT_URL}?${params.toString()}`, {
+    const response = await fetch(`${getAuditUrl()}?${params.toString()}`, {
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -152,7 +181,7 @@ export function track(data: TelemetryData): void {
     }
 
     // Fire and forget - don't await, silently ignore errors
-    fetch(`${TELEMETRY_URL}?${params.toString()}`).catch(() => {});
+    fetch(`${getTelemetryUrl()}?${params.toString()}`).catch(() => {});
   } catch {
     // Silently fail - telemetry should never break the CLI
   }

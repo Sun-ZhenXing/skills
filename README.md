@@ -101,14 +101,15 @@ When installing interactively, you can choose:
 
 ## Other Commands
 
-| Command                      | Description                                    |
-| ---------------------------- | ---------------------------------------------- |
-| `npx skills list`            | List installed skills (alias: `ls`)            |
-| `npx skills find [query]`    | Search for skills interactively or by keyword  |
-| `npx skills remove [skills]` | Remove installed skills from agents            |
-| `npx skills check`           | Check for available skill updates              |
-| `npx skills update`          | Update all installed skills to latest versions |
-| `npx skills init [name]`     | Create a new SKILL.md template                 |
+| Command                       | Description                                    |
+| ----------------------------- | ---------------------------------------------- |
+| `npx skills list`             | List installed skills (alias: `ls`)            |
+| `npx skills find [query]`     | Search for skills interactively or by keyword  |
+| `npx skills remove [skills]`  | Remove installed skills from agents            |
+| `npx skills check`            | Check for available skill updates              |
+| `npx skills update`           | Update all installed skills to latest versions |
+| `npx skills init [name]`      | Create a new SKILL.md template                 |
+| `npx skills config <command>` | Manage configuration settings                  |
 
 ### `skills list`
 
@@ -197,6 +198,67 @@ npx skills rm my-skill
 | `-s, --skill`  | Specify skills to remove (use `'*'` for all)     |
 | `-y, --yes`    | Skip confirmation prompts                        |
 | `--all`        | Shorthand for `--skill '*' --agent '*' -y`       |
+
+### `skills config`
+
+Manage skills CLI configuration settings.
+
+```bash
+# Get a config value
+npx skills config get registry
+
+# Set a config value
+npx skills config set registry https://my-registry.com
+
+# List all config values with their sources
+npx skills config list
+
+# Remove a config value (revert to default)
+npx skills config unset timeout
+```
+
+#### Configuration Keys
+
+| Key        | Description                                        | Default                           | Environment Variable |
+| ---------- | -------------------------------------------------- | --------------------------------- | -------------------- |
+| `registry` | Default registry URL for skill discovery           | `https://add-skill.vercel.sh`     | `SKILLS_REGISTRY`    |
+| `timeout`  | Default timeout for network operations (seconds)   | `30`                              | `SKILLS_TIMEOUT`     |
+| `telemetry`| Enable/disable anonymous usage telemetry           | `true`                            | `SKILLS_TELEMETRY`   |
+
+#### Priority
+
+Configuration values are resolved in this priority order:
+
+1. **Environment variables** (highest priority)
+2. **Config file** (`~/.config/skills/config.json` or `%LOCALAPPDATA%\skills\config.json`)
+3. **Default values** (lowest priority)
+
+#### Config File Location
+
+- **Linux/macOS**: `~/.config/skills/config.json` (or `$XDG_CONFIG_HOME/skills/config.json` if set)
+- **Windows**: `%LOCALAPPDATA%\skills\config.json`
+
+#### Examples
+
+```bash
+# Set a custom registry
+npx skills config set registry https://my-company.com/skills
+
+# Set timeout to 60 seconds
+npx skills config set timeout 60
+
+# Disable telemetry
+npx skills config set telemetry false
+
+# Get current registry (shows effective value considering env vars)
+npx skills config get registry
+
+# Show all config values with their sources
+npx skills config list
+
+# Remove custom registry (revert to default)
+npx skills config unset registry
+```
 
 ## What are Agent Skills?
 
