@@ -6,7 +6,7 @@ import {
   computeSkillStatus,
   syncSkill,
   syncAllSkills,
-  parseSyncOptions,
+  parseInstallOptions,
   type SyncOptions,
 } from './sync-lock.ts';
 import type { LocalSkillLockEntry, LocalSkillLockFile } from './local-lock.ts';
@@ -50,9 +50,9 @@ describe('sync-lock', () => {
     vi.restoreAllMocks();
   });
 
-  describe('parseSyncOptions', () => {
+  describe('parseInstallOptions', () => {
     it('should parse empty args', () => {
-      const options = parseSyncOptions([]);
+      const options = parseInstallOptions([]);
       expect(options.skillNames).toEqual([]);
       expect(options.dryRun).toBeUndefined();
       expect(options.force).toBeUndefined();
@@ -61,52 +61,52 @@ describe('sync-lock', () => {
     });
 
     it('should parse --dry-run flag', () => {
-      const options = parseSyncOptions(['--dry-run']);
+      const options = parseInstallOptions(['--dry-run']);
       expect(options.dryRun).toBe(true);
     });
 
     it('should parse -d flag', () => {
-      const options = parseSyncOptions(['-d']);
+      const options = parseInstallOptions(['-d']);
       expect(options.dryRun).toBe(true);
     });
 
     it('should parse --force flag', () => {
-      const options = parseSyncOptions(['--force']);
+      const options = parseInstallOptions(['--force']);
       expect(options.force).toBe(true);
     });
 
     it('should parse -f flag', () => {
-      const options = parseSyncOptions(['-f']);
+      const options = parseInstallOptions(['-f']);
       expect(options.force).toBe(true);
     });
 
     it('should parse --yes flag', () => {
-      const options = parseSyncOptions(['--yes']);
+      const options = parseInstallOptions(['--yes']);
       expect(options.yes).toBe(true);
     });
 
     it('should parse -y flag', () => {
-      const options = parseSyncOptions(['-y']);
+      const options = parseInstallOptions(['-y']);
       expect(options.yes).toBe(true);
     });
 
     it('should parse --global flag', () => {
-      const options = parseSyncOptions(['--global']);
+      const options = parseInstallOptions(['--global']);
       expect(options.global).toBe(true);
     });
 
     it('should parse -g flag', () => {
-      const options = parseSyncOptions(['-g']);
+      const options = parseInstallOptions(['-g']);
       expect(options.global).toBe(true);
     });
 
     it('should parse skill names', () => {
-      const options = parseSyncOptions(['skill-a', 'skill-b']);
+      const options = parseInstallOptions(['skill-a', 'skill-b']);
       expect(options.skillNames).toEqual(['skill-a', 'skill-b']);
     });
 
     it('should parse mixed args', () => {
-      const options = parseSyncOptions(['--dry-run', 'skill-a', '-y', 'skill-b']);
+      const options = parseInstallOptions(['--dry-run', 'skill-a', '-y', 'skill-b']);
       expect(options.dryRun).toBe(true);
       expect(options.yes).toBe(true);
       expect(options.skillNames).toEqual(['skill-a', 'skill-b']);

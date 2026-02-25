@@ -429,9 +429,9 @@ export async function syncAllSkills(options: SyncOptions = {}): Promise<SyncResu
 }
 
 /**
- * Parse sync command options from CLI arguments.
+ * Parse install command options from CLI arguments.
  */
-export function parseSyncOptions(args: string[]): SyncOptions {
+export function parseInstallOptions(args: string[]): SyncOptions {
   const options: SyncOptions = {
     skillNames: [],
   };

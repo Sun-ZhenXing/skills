@@ -12,11 +12,10 @@ import { runFind } from './find.ts';
 import { runInstallFromLock } from './install.ts';
 import { runList } from './list.ts';
 import { removeCommand, parseRemoveOptions } from './remove.ts';
-import { runSync, parseSyncOptions as parseExperimentalSyncOptions } from './sync.ts';
 import {
   syncAllSkills,
   detectSyncStatus,
-  parseSyncOptions,
+  parseInstallOptions,
   type SyncOptions,
 } from './sync-lock.ts';
 import { track } from './telemetry.ts';
@@ -113,16 +112,10 @@ function showBanner(): void {
   );
   console.log();
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills sync${RESET}                 ${DIM}Sync skills from skills-lock.json${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills install${RESET}              ${DIM}Install skills from skills-lock.json${RESET}`
   );
   console.log(
     `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills init ${DIM}[name]${RESET}          ${DIM}Create a new skill${RESET}`
-  );
-  console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills experimental_install${RESET} ${DIM}Restore from skills-lock.json${RESET}`
-  );
-  console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills experimental_sync${RESET}    ${DIM}Sync skills from node_modules${RESET}`
   );
   console.log();
   console.log(`${DIM}try:${RESET} npx @alexsun-top/skills add vercel-labs/agent-skills`);
@@ -139,6 +132,7 @@ ${BOLD}Manage Skills:${RESET}
   add <package>        Add a skill package (alias: a)
                        e.g. vercel-labs/agent-skills
                             https://github.com/vercel-labs/agent-skills
+  install [skills]     Install skills from skills-lock.json (alias: i)
   remove [skills]      Remove installed skills
   list, ls             List installed skills
   find [query]         Search for skills interactively
@@ -154,10 +148,8 @@ ${BOLD}Updates:${RESET}
   update               Update all skills to latest versions
 
 ${BOLD}Project:${RESET}
-  sync [skills...]     Sync skills from skills-lock.json
+  install [skills...]  Install skills from skills-lock.json
   init [name]          Initialize a skill (creates <name>/SKILL.md or ./SKILL.md)
-  experimental_install Restore skills from skills-lock.json (legacy)
-  experimental_sync    Sync skills from node_modules into agent directories
 
 ${BOLD}Add Options:${RESET}
   -g, --global           Install skill globally (user-level) instead of project-level
@@ -176,15 +168,11 @@ ${BOLD}Remove Options:${RESET}
   -y, --yes              Skip confirmation prompts
   --all                  Shorthand for --skill '*' --agent '*' -y
   
-${BOLD}Sync Options:${RESET}
+${BOLD}Install Options:${RESET}
   -d, --dry-run          Preview changes without applying them
   -f, --force            Force reinstallation of all skills
   -y, --yes              Skip confirmation prompts
-  -g, --global           Sync global skills
-
-${BOLD}Experimental Sync Options:${RESET}
-  -a, --agent <agents>   Specify agents to install to (use '*' for all agents)
-  -y, --yes              Skip confirmation prompts
+  -g, --global           Install global skills
 
 ${BOLD}List Options:${RESET}
   -g, --global           List global skills (default: project)
@@ -210,15 +198,12 @@ ${BOLD}Examples:${RESET}
   ${DIM}$${RESET} skills find typescript               ${DIM}# search by keyword${RESET}
   ${DIM}$${RESET} skills check
   ${DIM}$${RESET} skills update
-  ${DIM}$${RESET} skills sync                           ${DIM}# sync all skills from lock file${RESET}
-  ${DIM}$${RESET} skills sync --dry-run                 ${DIM}# preview changes${RESET}
-  ${DIM}$${RESET} skills sync --force                   ${DIM}# force reinstall all skills${RESET}
-  ${DIM}$${RESET} skills sync my-skill                  ${DIM}# sync specific skill${RESET}
-  ${DIM}$${RESET} skills sync -y                        ${DIM}# sync without prompts${RESET}
-  ${DIM}$${RESET} skills experimental_install            ${DIM}# restore from skills-lock.json (legacy)${RESET}
+  ${DIM}$${RESET} skills install                        ${DIM}# install all skills from lock file${RESET}
+  ${DIM}$${RESET} skills install --dry-run              ${DIM}# preview changes${RESET}
+  ${DIM}$${RESET} skills install --force                ${DIM}# force reinstall all skills${RESET}
+  ${DIM}$${RESET} skills install my-skill               ${DIM}# install specific skill${RESET}
+  ${DIM}$${RESET} skills install -y                     ${DIM}# install without prompts${RESET}
   ${DIM}$${RESET} skills init my-skill
-  ${DIM}$${RESET} skills experimental_sync              ${DIM}# sync from node_modules${RESET}
-  ${DIM}$${RESET} skills experimental_sync -y           ${DIM}# sync without prompts${RESET}
 
 Discover more skills at ${TEXT}https://skills.sh/${RESET}
 `);
@@ -274,8 +259,12 @@ ${BOLD}Commands:${RESET}
 
 ${BOLD}Configuration Keys:${RESET}
   registry           Default registry URL for skill discovery
-                     Default: https://add-skill.vercel.sh
+                     Default: https://skills.sh/
                      Env: SKILLS_REGISTRY
+
+  update-registry    Registry URL for skill update checking service
+                     Default: https://add-skill.vercel.sh
+                     Env: SKILLS_UPDATE_REGISTRY
 
   timeout            Default timeout for network operations (seconds)
                      Default: 30
@@ -548,10 +537,10 @@ const CURRENT_LOCK_VERSION = 3; // Bumped from 2 to 3 for folder hash support
  * Get the check updates API URL from config or default
  */
 function getCheckUpdatesApiUrl(): string {
-  const registry = getConfig('registry');
-  if (typeof registry === 'string' && registry) {
-    // If registry is set, use it as base URL
-    return `${registry.replace(/\/$/, '')}/check-updates`;
+  const updateRegistry = getConfig('update-registry');
+  if (typeof updateRegistry === 'string' && updateRegistry) {
+    // If update-registry is set, use it as base URL
+    return `${updateRegistry.replace(/\/$/, '')}/check-updates`;
   }
   return 'https://add-skill.vercel.sh/check-updates';
 }
@@ -916,12 +905,12 @@ async function runUpdate(): Promise<void> {
 // Sync Command (from lock file)
 // ============================================
 
-async function runSyncCommand(args: string[]): Promise<void> {
-  const options = parseSyncOptions(args);
+async function runInstallCommand(args: string[]): Promise<void> {
+  const options = parseInstallOptions(args);
 
   // Check for help flag
   if (args.includes('--help') || args.includes('-h')) {
-    showSyncHelp();
+    showInstallHelp();
     return;
   }
 
@@ -1086,33 +1075,33 @@ async function runSyncCommand(args: string[]): Promise<void> {
   console.log();
 }
 
-function showSyncHelp(): void {
+function showInstallHelp(): void {
   console.log(`
-${BOLD}Usage:${RESET} skills sync [skills...] [options]
+${BOLD}Usage:${RESET} skills install [skills...] [options]
 
 ${BOLD}Description:${RESET}
-  Synchronize local skills with the skills-lock.json file.
+  Install skills from the skills-lock.json file.
   This ensures your local skills match the lock file exactly.
 
 ${BOLD}Arguments:${RESET}
-  skills            Optional skill names to sync (space-separated)
-                    If omitted, all skills in the lock file are synced
+  skills            Optional skill names to install (space-separated)
+                    If omitted, all skills in the lock file are installed
 
 ${BOLD}Options:${RESET}
   -d, --dry-run      Preview changes without applying them
   -f, --force        Force reinstallation of all skills
   -y, --yes          Skip confirmation prompts
-  -g, --global       Sync global skills instead of project skills
+  -g, --global       Install global skills instead of project skills
   -h, --help         Show this help message
 
 ${BOLD}Examples:${RESET}
-  ${DIM}$${RESET} skills sync                           ${DIM}# sync all skills${RESET}
-  ${DIM}$${RESET} skills sync --dry-run                 ${DIM}# preview changes${RESET}
-  ${DIM}$${RESET} skills sync --force                   ${DIM}# force reinstall all${RESET}
-  ${DIM}$${RESET} skills sync my-skill                  ${DIM}# sync specific skill${RESET}
-  ${DIM}$${RESET} skills sync skill1 skill2             ${DIM}# sync multiple skills${RESET}
-  ${DIM}$${RESET} skills sync -y                        ${DIM}# sync without prompts${RESET}
-  ${DIM}$${RESET} skills sync -g                        ${DIM}# sync global skills${RESET}
+  ${DIM}$${RESET} skills install                        ${DIM}# install all skills${RESET}
+  ${DIM}$${RESET} skills install --dry-run              ${DIM}# preview changes${RESET}
+  ${DIM}$${RESET} skills install --force                ${DIM}# force reinstall all${RESET}
+  ${DIM}$${RESET} skills install my-skill               ${DIM}# install specific skill${RESET}
+  ${DIM}$${RESET} skills install skill1 skill2          ${DIM}# install multiple skills${RESET}
+  ${DIM}$${RESET} skills install -y                     ${DIM}# install without prompts${RESET}
+  ${DIM}$${RESET} skills install -g                     ${DIM}# install global skills${RESET}
 
 Discover more skills at ${TEXT}https://skills.sh/${RESET}
 `);
@@ -1147,13 +1136,6 @@ async function main(): Promise<void> {
       console.log();
       runInit(restArgs);
       break;
-    case 'experimental_install': {
-      showLogo();
-      await runInstallFromLock(restArgs);
-      break;
-    }
-    case 'i':
-    case 'install':
     case 'a':
     case 'add': {
       showLogo();
@@ -1172,14 +1154,13 @@ async function main(): Promise<void> {
       const { skills, options: removeOptions } = parseRemoveOptions(restArgs);
       await removeCommand(skills, removeOptions);
       break;
-    case 'sync': {
-      await runSyncCommand(restArgs);
+    case 'i':
+    case 'install':
+      await runInstallCommand(restArgs);
       break;
-    }
-    case 'experimental_sync': {
-      showLogo();
-      const { options: experimentalSyncOptions } = parseExperimentalSyncOptions(restArgs);
-      await runSync(restArgs, experimentalSyncOptions);
+    case 'sync': {
+      console.warn(`${DIM}Warning: 'sync' is deprecated, use 'install' instead${RESET}`);
+      await runInstallCommand(restArgs);
       break;
     }
     case 'list':
