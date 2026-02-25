@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { access, readdir, stat, cp, rm, mkdir, writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
-import { spawn } from 'child_process';
 import {
   detectSyncStatus,
   computeSkillStatus,
@@ -16,9 +15,16 @@ import * as localLock from './local-lock.ts';
 // Mock fs/promises
 vi.mock('fs/promises');
 
-// Mock child_process
-vi.mock('child_process', () => ({
-  spawn: vi.fn(),
+// Mock git.ts module
+vi.mock('./git.ts', () => ({
+  cloneRepo: vi.fn(),
+  cleanupTempDir: vi.fn(),
+  resolveGitHubUrl: vi.fn((url: string) => url),
+}));
+
+// Mock skills.ts module
+vi.mock('./skills.ts', () => ({
+  discoverSkills: vi.fn(),
 }));
 
 // Mock local-lock module
@@ -250,24 +256,34 @@ describe('sync-lock', () => {
     });
 
     it('should handle git-based skill sync', async () => {
-      const mockSpawn = vi.fn().mockReturnValue({
-        stderr: { on: vi.fn() },
-        on: vi.fn().mockImplementation((event, callback) => {
-          if (event === 'close') {
-            callback(0);
-          }
-        }),
-      });
-      vi.mocked(spawn).mockImplementation(mockSpawn as any);
+      const { cloneRepo, cleanupTempDir } = await import('./git.ts');
+      const { discoverSkills } = await import('./skills.ts');
+
+      const mockTempDir = '/tmp/skills-123';
+      vi.mocked(cloneRepo).mockResolvedValue({ tempDir: mockTempDir });
+      vi.mocked(cleanupTempDir).mockResolvedValue(undefined);
+      vi.mocked(discoverSkills).mockResolvedValue([
+        {
+          name: 'my-skill',
+          path: `${mockTempDir}/skills/my-skill`,
+          description: 'Test skill',
+        } as any,
+      ]);
+      vi.mocked(rm).mockResolvedValue(undefined);
+      vi.mocked(mkdir).mockResolvedValue(undefined);
+      vi.mocked(cp).mockResolvedValue(undefined);
 
       const result = await syncSkill('my-skill', mockEntry, { cwd: mockCwd });
 
       expect(result.success).toBe(true);
-      expect(spawn).toHaveBeenCalledWith(
-        'git',
-        ['clone', '--depth', '1', 'github.com/owner/repo', expect.any(String)],
-        expect.any(Object)
-      );
+      expect(cloneRepo).toHaveBeenCalledWith('github.com/owner/repo', undefined);
+      expect(discoverSkills).toHaveBeenCalledWith(mockTempDir, undefined, {
+        includeInternal: false,
+      });
+      expect(cp).toHaveBeenCalledWith(`${mockTempDir}/skills/my-skill`, expect.any(String), {
+        recursive: true,
+      });
+      expect(cleanupTempDir).toHaveBeenCalledWith(mockTempDir);
     });
 
     it('should handle node_modules skill sync', async () => {
@@ -324,19 +340,8 @@ describe('sync-lock', () => {
     });
 
     it('should handle git clone failure', async () => {
-      const mockSpawn = vi.fn().mockReturnValue({
-        stderr: {
-          on: vi.fn().mockImplementation((event, callback) => {
-            callback('Git error');
-          }),
-        },
-        on: vi.fn().mockImplementation((event, callback) => {
-          if (event === 'close') {
-            callback(1);
-          }
-        }),
-      });
-      vi.mocked(spawn).mockImplementation(mockSpawn as any);
+      const { cloneRepo } = await import('./git.ts');
+      vi.mocked(cloneRepo).mockRejectedValue(new Error('Git clone failed: repository not found'));
 
       const result = await syncSkill('my-skill', mockEntry, { cwd: mockCwd });
 
