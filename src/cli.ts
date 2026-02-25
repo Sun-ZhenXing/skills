@@ -14,6 +14,21 @@ import { removeCommand, parseRemoveOptions } from './remove.ts';
 import { runSync, parseSyncOptions } from './sync.ts';
 import { track } from './telemetry.ts';
 import { fetchSkillFolderHash, getGitHubToken } from './skill-lock.ts';
+import {
+  getConfigValue,
+  getAllConfigValues,
+  setConfigValue,
+  unsetConfigValue,
+  validateConfigValue,
+  formatConfigValue,
+  isValidConfigKey,
+  getValidConfigKeys,
+  getDefaultValue,
+  getEnvVarName,
+  getConfigPath,
+  getConfig,
+  type ConfigKey,
+} from './config.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -79,6 +94,9 @@ function showBanner(): void {
   console.log(
     `  ${DIM}$${RESET} ${TEXT}npx skills find ${DIM}[query]${RESET}         ${DIM}Search for skills${RESET}`
   );
+  console.log(
+    `  ${DIM}$${RESET} ${TEXT}npx skills config${RESET}              ${DIM}Manage configuration${RESET}`
+  );
   console.log();
   console.log(
     `  ${DIM}$${RESET} ${TEXT}npx skills check${RESET}                ${DIM}Check for updates${RESET}`
@@ -114,6 +132,12 @@ ${BOLD}Manage Skills:${RESET}
   remove [skills]      Remove installed skills
   list, ls             List installed skills
   find [query]         Search for skills interactively
+
+${BOLD}Configuration:${RESET}
+  config get <key>     Get a config value
+  config set <key> <val> Set a config value
+  config list          List all config values
+  config unset <key>   Remove a config value
 
 ${BOLD}Updates:${RESET}
   check                Check for available skill updates
@@ -196,6 +220,10 @@ ${BOLD}Options:${RESET}
   --all              Shorthand for --skill '*' --agent '*' -y
 
 ${BOLD}Examples:${RESET}
+  ${DIM}$${RESET} skills config get registry             ${DIM}# get registry URL${RESET}
+  ${DIM}$${RESET} skills config set registry https://...   ${DIM}# set registry URL${RESET}
+  ${DIM}$${RESET} skills config list                       ${DIM}# list all config values${RESET}
+  ${DIM}$${RESET} skills config unset timeout              ${DIM}# remove timeout config${RESET}
   ${DIM}$${RESET} skills remove                           ${DIM}# interactive selection${RESET}
   ${DIM}$${RESET} skills remove my-skill                   ${DIM}# remove specific skill${RESET}
   ${DIM}$${RESET} skills remove skill1 skill2 -y           ${DIM}# remove multiple skills${RESET}
@@ -206,6 +234,220 @@ ${BOLD}Examples:${RESET}
 
 Discover more skills at ${TEXT}https://skills.sh/${RESET}
 `);
+}
+
+function showConfigHelp(): void {
+  console.log(`
+${BOLD}Usage:${RESET} skills config <command> [options]
+
+${BOLD}Description:${RESET}
+  Manage skills CLI configuration settings.
+
+${BOLD}Commands:${RESET}
+  get <key>          Get the value of a config key
+  set <key> <value>  Set the value of a config key
+  list               List all config values and their sources
+  unset <key>        Remove a config key (revert to default)
+
+${BOLD}Configuration Keys:${RESET}
+  registry           Default registry URL for skill discovery
+                     Default: https://add-skill.vercel.sh
+                     Env: SKILLS_REGISTRY
+
+  timeout            Default timeout for network operations (seconds)
+                     Default: 30
+                     Env: SKILLS_TIMEOUT
+
+  telemetry          Enable/disable anonymous usage telemetry
+                     Default: true
+                     Env: SKILLS_TELEMETRY
+
+${BOLD}Priority:${RESET}
+  Environment variables > Config file > Default values
+
+${BOLD}Config File Location:${RESET}
+  ${DIM}•${RESET} Linux/macOS: ~/.config/skills/config.json (or $XDG_CONFIG_HOME/skills/config.json)
+  ${DIM}•${RESET} Windows: %LOCALAPPDATA%\\skills\\config.json
+
+${BOLD}Examples:${RESET}
+  ${DIM}$${RESET} skills config get registry              ${DIM}# get current registry${RESET}
+  ${DIM}$${RESET} skills config set registry https://...    ${DIM}# set custom registry${RESET}
+  ${DIM}$${RESET} skills config set timeout 60              ${DIM}# set timeout to 60 seconds${RESET}
+  ${DIM}$${RESET} skills config set telemetry false         ${DIM}# disable telemetry${RESET}
+  ${DIM}$${RESET} skills config list                        ${DIM}# show all config values${RESET}
+  ${DIM}$${RESET} skills config unset registry              ${DIM}# remove registry config${RESET}
+
+Discover more skills at ${TEXT}https://skills.sh/${RESET}
+`);
+}
+
+// ============================================
+// Config Command
+// ============================================
+
+function runConfig(args: string[]): void {
+  const subcommand = args[0];
+  const restArgs = args.slice(1);
+
+  switch (subcommand) {
+    case 'get':
+      runConfigGet(restArgs);
+      break;
+    case 'set':
+      runConfigSet(restArgs);
+      break;
+    case 'list':
+      runConfigList();
+      break;
+    case 'unset':
+      runConfigUnset(restArgs);
+      break;
+    case '--help':
+    case '-h':
+    case undefined:
+    case '':
+      showConfigHelp();
+      break;
+    default:
+      console.log(`${BOLD}Unknown config command: ${subcommand}${RESET}`);
+      console.log(`Run ${BOLD}skills config --help${RESET} for usage.`);
+      process.exit(1);
+  }
+}
+
+function runConfigGet(args: string[]): void {
+  const key = args[0];
+
+  if (!key) {
+    console.log(`${BOLD}Error: Missing config key${RESET}`);
+    console.log(`Usage: skills config get <key>`);
+    console.log(`Run ${BOLD}skills config --help${RESET} for available keys.`);
+    process.exit(1);
+  }
+
+  if (!isValidConfigKey(key)) {
+    console.log(`${BOLD}Error: Unknown config key: ${key}${RESET}`);
+    console.log(`Valid keys: ${getValidConfigKeys().join(', ')}`);
+    process.exit(1);
+  }
+
+  const { value } = getConfigValue(key as ConfigKey);
+  console.log(formatConfigValue(value));
+}
+
+function runConfigSet(args: string[]): void {
+  const key = args[0];
+  const value = args[1];
+
+  if (!key) {
+    console.log(`${BOLD}Error: Missing config key${RESET}`);
+    console.log(`Usage: skills config set <key> <value>`);
+    console.log(`Run ${BOLD}skills config --help${RESET} for available keys.`);
+    process.exit(1);
+  }
+
+  if (!isValidConfigKey(key)) {
+    console.log(`${BOLD}Error: Unknown config key: ${key}${RESET}`);
+    console.log(`Valid keys: ${getValidConfigKeys().join(', ')}`);
+    process.exit(1);
+  }
+
+  if (value === undefined) {
+    console.log(`${BOLD}Error: Missing config value${RESET}`);
+    console.log(`Usage: skills config set ${key} <value>`);
+    process.exit(1);
+  }
+
+  // Validate the value
+  const validation = validateConfigValue(key as ConfigKey, value);
+  if (!validation.valid && validation.warning) {
+    console.warn(`Warning: ${validation.warning}`);
+  }
+
+  // Parse and set the value
+  const parsedValue = parseConfigSetValue(key as ConfigKey, value);
+  setConfigValue(key as ConfigKey, parsedValue);
+
+  const envVar = getEnvVarName(key as ConfigKey);
+  console.log(`${TEXT}✓ Set ${key} to ${DIM}${formatConfigValue(parsedValue)}${RESET}`);
+  console.log();
+  console.log(`${DIM}Note: Environment variable ${envVar} will override this value.${RESET}`);
+}
+
+function runConfigList(): void {
+  const values = getAllConfigValues();
+  const configPath = getConfigPath();
+
+  console.log();
+  console.log(`${BOLD}Configuration:${RESET}`);
+  console.log(`${DIM}Config file: ${configPath}${RESET}`);
+  console.log();
+
+  const keys = getValidConfigKeys();
+  let hasAnyValue = false;
+
+  for (const key of keys) {
+    const { value, source } = values[key];
+    const formattedValue = formatConfigValue(value);
+    const sourceLabel = {
+      env: `${DIM}(environment)${RESET}`,
+      file: `${DIM}(config file)${RESET}`,
+      default: `${DIM}(default)${RESET}`,
+    }[source];
+
+    if (value !== undefined) {
+      hasAnyValue = true;
+      console.log(`  ${TEXT}${key}${RESET} = ${formattedValue} ${sourceLabel}`);
+    }
+  }
+
+  if (!hasAnyValue) {
+    console.log(`  ${DIM}No configuration values set.${RESET}`);
+  }
+
+  console.log();
+  console.log(`${DIM}Priority: Environment variables > Config file > Default values${RESET}`);
+  console.log();
+}
+
+function runConfigUnset(args: string[]): void {
+  const key = args[0];
+
+  if (!key) {
+    console.log(`${BOLD}Error: Missing config key${RESET}`);
+    console.log(`Usage: skills config unset <key>`);
+    console.log(`Run ${BOLD}skills config --help${RESET} for available keys.`);
+    process.exit(1);
+  }
+
+  if (!isValidConfigKey(key)) {
+    console.log(`${BOLD}Error: Unknown config key: ${key}${RESET}`);
+    console.log(`Valid keys: ${getValidConfigKeys().join(', ')}`);
+    process.exit(1);
+  }
+
+  const existed = unsetConfigValue(key as ConfigKey);
+
+  if (existed) {
+    console.log(`${TEXT}✓ Removed ${key} from config${RESET}`);
+  } else {
+    console.log(`${DIM}${key} was not set in config file${RESET}`);
+  }
+}
+
+/**
+ * Parse a string value into the appropriate type for a config key
+ */
+function parseConfigSetValue(key: ConfigKey, value: string): string | number | boolean {
+  switch (key) {
+    case 'timeout':
+      return Number(value);
+    case 'telemetry':
+      return ['true', '1'].includes(value.toLowerCase());
+    case 'registry':
+    default:
+      return value;
+  }
 }
 
 function runInit(args: string[]): void {
@@ -277,8 +519,19 @@ Describe when this skill should be used.
 
 const AGENTS_DIR = '.agents';
 const LOCK_FILE = '.skill-lock.json';
-const CHECK_UPDATES_API_URL = 'https://add-skill.vercel.sh/check-updates';
 const CURRENT_LOCK_VERSION = 3; // Bumped from 2 to 3 for folder hash support
+
+/**
+ * Get the check updates API URL from config or default
+ */
+function getCheckUpdatesApiUrl(): string {
+  const registry = getConfig('registry');
+  if (typeof registry === 'string' && registry) {
+    // If registry is set, use it as base URL
+    return `${registry.replace(/\/$/, '')}/check-updates`;
+  }
+  return 'https://add-skill.vercel.sh/check-updates';
+}
 
 interface SkillLockEntry {
   source: string;
@@ -702,6 +955,15 @@ async function main(): Promise<void> {
     case 'update':
     case 'upgrade':
       runUpdate();
+      break;
+    case 'config':
+    case 'cfg':
+      // Check for --help or -h flag
+      if (restArgs.includes('--help') || restArgs.includes('-h')) {
+        showConfigHelp();
+        break;
+      }
+      runConfig(restArgs);
       break;
     case '--help':
     case '-h':
