@@ -29,9 +29,14 @@ function isGitShorthand(source: string): boolean {
 
 /**
  * Convert shorthand owner/repo format to full HTTPS URL.
- * Assumes GitHub as the default host.
+ * For GitHub/GitLab sources, assumes GitHub as the default host.
+ * For generic git sources, returns the source as-is.
  */
-function convertShorthandToUrl(source: string): string {
+function convertShorthandToUrl(source: string, sourceType: string): string {
+  // Only convert shorthand for GitHub/GitLab sources
+  if (sourceType !== 'github' && sourceType !== 'gitlab') {
+    return source;
+  }
   if (isGitShorthand(source)) {
     return `https://github.com/${source}.git`;
   }
@@ -109,10 +114,10 @@ export async function runInstallFromLock(args: string[]): Promise<void> {
   }
 
   // Install remote skills grouped by source
-  for (const [source, { skills, declaredRef, resolvedRef }] of bySource) {
+  for (const [source, { sourceType, skills, declaredRef, resolvedRef }] of bySource) {
     try {
-      // Convert shorthand to full URL if needed
-      let fullSource = convertShorthandToUrl(source);
+      // Convert shorthand to full URL if needed (only for GitHub/GitLab)
+      let fullSource = convertShorthandToUrl(source, sourceType);
 
       // Append ref if available
       const ref = declaredRef ?? resolvedRef;

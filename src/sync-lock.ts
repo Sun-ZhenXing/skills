@@ -240,8 +240,12 @@ async function syncGitSkill(
   entry: LocalSkillLockEntry,
   skillPath: string
 ): Promise<void> {
-  // Resolve GitHub shorthand to full URL
-  const gitUrl = resolveGitHubUrl(entry.source);
+  // For GitHub/GitLab, resolve shorthand (owner/repo) to full URL
+  // For generic git, use the source as-is (should be full URL)
+  const gitUrl =
+    entry.sourceType === 'github' || entry.sourceType === 'gitlab'
+      ? resolveGitHubUrl(entry.source)
+      : entry.source;
   const ref = entry.resolvedRef || entry.declaredRef;
 
   // Clone to temp directory
