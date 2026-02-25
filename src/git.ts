@@ -5,6 +5,38 @@ import { tmpdir } from 'os';
 
 const CLONE_TIMEOUT_MS = 60000; // 60 seconds
 
+/**
+ * Detects if a source string is in GitHub shorthand format (owner/repo).
+ * Excludes full URLs (:// or @) and local paths (., /, \)
+ */
+export function isGitHubShorthand(source: string): boolean {
+  // Check for path separators that would indicate a local path
+  if (source.includes('\\') || source.startsWith('./') || source.startsWith('../')) {
+    return false;
+  }
+  // Check for absolute paths (Unix / or Windows C:\)
+  if (source.startsWith('/') || /^[a-zA-Z]:[/\\]/.test(source)) {
+    return false;
+  }
+  // Check for URL indicators
+  if (source.includes('://') || source.includes('@')) {
+    return false;
+  }
+  // Match owner/repo format: alphanumeric, underscore, dot, hyphen, then slash, then same
+  return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(source);
+}
+
+/**
+ * Converts GitHub shorthand to full HTTPS Git URL.
+ * If not shorthand, returns the source unchanged.
+ */
+export function resolveGitHubUrl(source: string): string {
+  if (isGitHubShorthand(source)) {
+    return `https://github.com/${source}.git`;
+  }
+  return source;
+}
+
 export class GitCloneError extends Error {
   readonly url: string;
   readonly isTimeout: boolean;
@@ -33,6 +65,9 @@ export interface CloneResult {
 }
 
 export async function cloneRepo(url: string, ref?: string): Promise<CloneResult> {
+  // Resolve GitHub shorthand to full URL
+  const resolvedUrl = resolveGitHubUrl(url);
+
   const tempDir = await mkdtemp(join(tmpdir(), 'skills-'));
   const git = simpleGit({
     timeout: { block: CLONE_TIMEOUT_MS },
@@ -42,7 +77,7 @@ export async function cloneRepo(url: string, ref?: string): Promise<CloneResult>
   process.env.GIT_TERMINAL_PROMPT = '0';
 
   try {
-    await git.clone(url, tempDir, cloneOptions);
+    await git.clone(resolvedUrl, tempDir, cloneOptions);
 
     const clonedRepo = simpleGit({
       baseDir: tempDir,
@@ -55,11 +90,11 @@ export async function cloneRepo(url: string, ref?: string): Promise<CloneResult>
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new GitCloneError(
-          `Failed to checkout ref '${ref}' for ${url}.
+          `Failed to checkout ref '${ref}' for ${resolvedUrl}.
   - Verify the ref exists (tag/branch/commit)
   - Ensure the ref is accessible in this repository
   - Git error: ${message}`,
-          url
+          resolvedUrl
         );
       }
     }
@@ -99,7 +134,7 @@ export async function cloneRepo(url: string, ref?: string): Promise<CloneResult>
           `  Ensure you have access and your SSH keys or credentials are configured:\n` +
           `  - For SSH: ssh-add -l (to check loaded keys)\n` +
           `  - For HTTPS: gh auth status (if using GitHub CLI)`,
-        url,
+        resolvedUrl,
         true,
         false,
         false
@@ -108,11 +143,11 @@ export async function cloneRepo(url: string, ref?: string): Promise<CloneResult>
 
     if (isAuthError) {
       throw new GitCloneError(
-        `Authentication failed for ${url}.\n` +
+        `Authentication failed for ${resolvedUrl}.\n` +
           `  - For private repos, ensure you have access\n` +
           `  - For SSH: Check your keys with 'ssh -T git@github.com'\n` +
           `  - For HTTPS: Run 'gh auth login' or configure git credentials`,
-        url,
+        resolvedUrl,
         false,
         true,
         false
@@ -121,18 +156,24 @@ export async function cloneRepo(url: string, ref?: string): Promise<CloneResult>
 
     if (isUnreachableError) {
       throw new GitCloneError(
-        `Repository is unreachable: ${url}.\n` +
+        `Repository is unreachable: ${resolvedUrl}.\n` +
           `  - Verify the repository URL is correct\n` +
           `  - Check network connectivity and VPN/proxy settings\n` +
           `  - Confirm the Git host is accessible from your environment`,
-        url,
+        resolvedUrl,
         false,
         false,
         true
       );
     }
 
-    throw new GitCloneError(`Failed to clone ${url}: ${errorMessage}`, url, false, false, false);
+    throw new GitCloneError(
+      `Failed to clone ${resolvedUrl}: ${errorMessage}`,
+      resolvedUrl,
+      false,
+      false,
+      false
+    );
   } finally {
     if (previousPromptValue === undefined) {
       delete process.env.GIT_TERMINAL_PROMPT;
