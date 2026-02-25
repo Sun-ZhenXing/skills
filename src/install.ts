@@ -4,6 +4,51 @@ import { readLocalLock } from './local-lock.ts';
 import { runAdd } from './add.ts';
 import { runSync, parseSyncOptions } from './sync.ts';
 import { getUniversalAgents } from './agents.ts';
+import type { LocalSkillLockEntry } from './local-lock.ts';
+
+/**
+ * Check if a source is in shorthand format (owner/repo).
+ * Returns true for format like "owner/repo", false for full URLs or other formats.
+ */
+function isGitShorthand(source: string): boolean {
+  // Shorthand format: owner/repo (contains / but no protocol or @ before the /)
+  // Exclude: URLs (http://, https://, git://, ssh://), SSH format (git@host:path)
+  if (source.startsWith('http://') || source.startsWith('https://')) {
+    return false;
+  }
+  if (source.startsWith('git://') || source.startsWith('ssh://')) {
+    return false;
+  }
+  if (source.includes('@') && source.includes(':')) {
+    // Likely SSH format like git@github.com:owner/repo.git
+    return false;
+  }
+  // Must contain exactly one / with no protocol
+  return source.includes('/') && !source.includes('://');
+}
+
+/**
+ * Convert shorthand owner/repo format to full HTTPS URL.
+ * Assumes GitHub as the default host.
+ */
+function convertShorthandToUrl(source: string): string {
+  if (isGitShorthand(source)) {
+    return `https://github.com/${source}.git`;
+  }
+  return source;
+}
+
+/**
+ * Build the source string with ref appended if available.
+ * Format: source@ref
+ */
+function buildSourceWithRef(source: string, entry: LocalSkillLockEntry): string {
+  const ref = entry.declaredRef ?? entry.resolvedRef;
+  if (ref) {
+    return `${source}@${ref}`;
+  }
+  return source;
+}
 
 /**
  * Install all skills from the local skills-lock.json.
@@ -32,7 +77,10 @@ export async function runInstallFromLock(args: string[]): Promise<void> {
 
   // Separate node_modules skills from remote skills
   const nodeModuleSkills: string[] = [];
-  const bySource = new Map<string, { sourceType: string; skills: string[] }>();
+  const bySource = new Map<
+    string,
+    { sourceType: string; skills: string[]; declaredRef?: string; resolvedRef?: string }
+  >();
 
   for (const [skillName, entry] of skillEntries) {
     if (entry.sourceType === 'node_modules') {
@@ -47,6 +95,8 @@ export async function runInstallFromLock(args: string[]): Promise<void> {
       bySource.set(entry.source, {
         sourceType: entry.sourceType,
         skills: [skillName],
+        declaredRef: entry.declaredRef,
+        resolvedRef: entry.resolvedRef,
       });
     }
   }
@@ -59,9 +109,18 @@ export async function runInstallFromLock(args: string[]): Promise<void> {
   }
 
   // Install remote skills grouped by source
-  for (const [source, { skills }] of bySource) {
+  for (const [source, { skills, declaredRef, resolvedRef }] of bySource) {
     try {
-      await runAdd([source], {
+      // Convert shorthand to full URL if needed
+      let fullSource = convertShorthandToUrl(source);
+
+      // Append ref if available
+      const ref = declaredRef ?? resolvedRef;
+      if (ref) {
+        fullSource = `${fullSource}@${ref}`;
+      }
+
+      await runAdd([fullSource], {
         skill: skills,
         agent: universalAgentNames,
         yes: true,
