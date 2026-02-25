@@ -87,45 +87,45 @@ function showLogo(): void {
 function showBanner(): void {
   showLogo();
   console.log();
-  console.log(`${DIM}The open agent skills ecosystem${RESET}`);
+  console.log(`${DIM}The open agent skills ecosystem (Fork by alexsun-top)${RESET}`);
   console.log();
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills add ${DIM}<package>${RESET}        ${DIM}Add a new skill${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills add ${DIM}<package>${RESET}        ${DIM}Add a new skill${RESET}`
   );
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills remove${RESET}               ${DIM}Remove installed skills${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills remove${RESET}               ${DIM}Remove installed skills${RESET}`
   );
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills list${RESET}                 ${DIM}List installed skills${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills list${RESET}                 ${DIM}List installed skills${RESET}`
   );
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills find ${DIM}[query]${RESET}         ${DIM}Search for skills${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills find ${DIM}[query]${RESET}         ${DIM}Search for skills${RESET}`
   );
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills config${RESET}              ${DIM}Manage configuration${RESET}`
-  );
-  console.log();
-  console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills check${RESET}                ${DIM}Check for updates${RESET}`
-  );
-  console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills update${RESET}               ${DIM}Update all skills${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills config${RESET}              ${DIM}Manage configuration${RESET}`
   );
   console.log();
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills sync${RESET}                 ${DIM}Sync skills from skills-lock.json${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills check${RESET}                ${DIM}Check for updates${RESET}`
   );
   console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills init ${DIM}[name]${RESET}          ${DIM}Create a new skill${RESET}`
-  );
-  console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills experimental_install${RESET} ${DIM}Restore from skills-lock.json${RESET}`
-  );
-  console.log(
-    `  ${DIM}$${RESET} ${TEXT}npx skills experimental_sync${RESET}    ${DIM}Sync skills from node_modules${RESET}`
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills update${RESET}               ${DIM}Update all skills${RESET}`
   );
   console.log();
-  console.log(`${DIM}try:${RESET} npx skills add vercel-labs/agent-skills`);
+  console.log(
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills sync${RESET}                 ${DIM}Sync skills from skills-lock.json${RESET}`
+  );
+  console.log(
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills init ${DIM}[name]${RESET}          ${DIM}Create a new skill${RESET}`
+  );
+  console.log(
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills experimental_install${RESET} ${DIM}Restore from skills-lock.json${RESET}`
+  );
+  console.log(
+    `  ${DIM}$${RESET} ${TEXT}npx @alexsun-top/skills experimental_sync${RESET}    ${DIM}Sync skills from node_modules${RESET}`
+  );
+  console.log();
+  console.log(`${DIM}try:${RESET} npx @alexsun-top/skills add vercel-labs/agent-skills`);
   console.log();
   console.log(`Discover more skills at ${TEXT}https://skills.sh/${RESET}`);
   console.log();
@@ -195,9 +195,10 @@ ${BOLD}Options:${RESET}
   --version, -v     Show version number
 
 ${BOLD}Examples:${RESET}
-  ${DIM}$${RESET} skills add vercel-labs/agent-skills
-  ${DIM}$${RESET} skills add vercel-labs/agent-skills -g
-  ${DIM}$${RESET} skills add vercel-labs/agent-skills --agent claude-code cursor
+  ${DIM}$${RESET} npx @alexsun-top/skills add vercel-labs/agent-skills
+  ${DIM}$${RESET} npx @alexsun-top/skills add vercel-labs/agent-skills -g
+  ${DIM}$${RESET} npx @alexsun-top/skills add vercel-labs/agent-skills --agent claude-code cursor
+  ${DIM}$${RESET} npm i -g @alexsun-top/skills  # Install globally to use 'skills' directly
   ${DIM}$${RESET} skills add vercel-labs/agent-skills --skill pr-review commit
   ${DIM}$${RESET} skills remove                        ${DIM}# interactive remove${RESET}
   ${DIM}$${RESET} skills remove web-design             ${DIM}# remove by name${RESET}
@@ -525,10 +526,10 @@ Describe when this skill should be used.
   console.log();
   console.log(`${DIM}Publishing:${RESET}`);
   console.log(
-    `  ${DIM}GitHub:${RESET}  Push to a repo, then ${TEXT}npx skills add <owner>/<repo>${RESET}`
+    `  ${DIM}GitHub:${RESET}  Push to a repo, then ${TEXT}npx @alexsun-top/skills add <owner>/<repo>${RESET}`
   );
   console.log(
-    `  ${DIM}URL:${RESET}     Host the file, then ${TEXT}npx skills add https://example.com/${displayPath}${RESET}`
+    `  ${DIM}URL:${RESET}     Host the file, then ${TEXT}npx @alexsun-top/skills add https://example.com/${displayPath}${RESET}`
   );
   console.log();
   console.log(`Browse existing skills for inspiration at ${TEXT}https://skills.sh/${RESET}`);
@@ -638,7 +639,9 @@ async function runCheck(args: string[] = []): Promise<void> {
 
   if (skillNames.length === 0) {
     console.log(`${DIM}No skills tracked in lock file.${RESET}`);
-    console.log(`${DIM}Install skills with${RESET} ${TEXT}npx skills add <package>${RESET}`);
+    console.log(
+      `${DIM}Install skills with${RESET} ${TEXT}npx @alexsun-top/skills add <package>${RESET}`
+    );
     return;
   }
 
@@ -731,7 +734,7 @@ async function runCheck(args: string[] = []): Promise<void> {
     }
     console.log();
     console.log(
-      `${DIM}Run${RESET} ${TEXT}npx skills update${RESET} ${DIM}to update all skills${RESET}`
+      `${DIM}Run${RESET} ${TEXT}npx @alexsun-top/skills update${RESET} ${DIM}to update all skills${RESET}`
     );
   }
 
@@ -752,7 +755,7 @@ async function runCheck(args: string[] = []): Promise<void> {
       console.log(`  ${DIM}...and ${manualUpdateSkills.length - 5} more${RESET}`);
     }
     console.log(
-      `${DIM}Reinstall manually with${RESET} ${TEXT}npx skills add <source> -g${RESET} ${DIM}when you want to refresh.${RESET}`
+      `${DIM}Reinstall manually with${RESET} ${TEXT}npx @alexsun-top/skills add <source> -g${RESET} ${DIM}when you want to refresh.${RESET}`
     );
   }
 
@@ -775,7 +778,9 @@ async function runUpdate(): Promise<void> {
 
   if (skillNames.length === 0) {
     console.log(`${DIM}No skills tracked in lock file.${RESET}`);
-    console.log(`${DIM}Install skills with${RESET} ${TEXT}npx skills add <package>${RESET}`);
+    console.log(
+      `${DIM}Install skills with${RESET} ${TEXT}npx @alexsun-top/skills add <package>${RESET}`
+    );
     return;
   }
 

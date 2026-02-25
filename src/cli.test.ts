@@ -50,10 +50,10 @@ describe('skills CLI', () => {
     it('should display banner', () => {
       const output = stripLogo(runCliOutput([]));
       expect(output).toContain('The open agent skills ecosystem');
-      expect(output).toContain('npx skills add');
-      expect(output).toContain('npx skills check');
-      expect(output).toContain('npx skills update');
-      expect(output).toContain('npx skills init');
+      expect(output).toContain('npx @alexsun-top/skills add');
+      expect(output).toContain('npx @alexsun-top/skills check');
+      expect(output).toContain('npx @alexsun-top/skills update');
+      expect(output).toContain('npx @alexsun-top/skills init');
       expect(output).toContain('skills.sh');
     });
   });

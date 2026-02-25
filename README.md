@@ -1,6 +1,23 @@
-# skills
+# @alexsun-top/skills
+
+> **⚠️ This is a Fork**
+> 
+> This is a fork of [npx skills](https://www.npmjs.com/package/skills), maintained by alexsun-top.
+> The original project was developed by Vercel Labs.
 
 The CLI for the open agent skills ecosystem.
+
+## Global Installation (Recommended)
+
+```bash
+# Using npm
+npm i -g @alexsun-top/skills
+
+# Using pnpm
+pnpm i -g @alexsun-top/skills
+```
+
+After installation, you can use the `skills` command directly without typing `npx` every time.
 
 <!-- agent-list:start -->
 Supports **OpenCode**, **Claude Code**, **Codex**, **Cursor**, and [37 more](#available-agents).
@@ -9,38 +26,38 @@ Supports **OpenCode**, **Claude Code**, **Codex**, **Cursor**, and [37 more](#av
 ## Install a Skill
 
 ```bash
-npx skills add vercel-labs/agent-skills
+npx @alexsun-top/skills add vercel-labs/agent-skills
 ```
 
 ### Source Formats
 
 ```bash
 # GitHub shorthand (owner/repo)
-npx skills add vercel-labs/agent-skills
+npx @alexsun-top/skills add vercel-labs/agent-skills
 
 # Full GitHub URL
-npx skills add https://github.com/vercel-labs/agent-skills
+npx @alexsun-top/skills add https://github.com/vercel-labs/agent-skills
 
 # Direct path to a skill in a repo
-npx skills add https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines
+npx @alexsun-top/skills add https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines
 
 # GitLab URL
-npx skills add https://gitlab.com/org/repo
+npx @alexsun-top/skills add https://gitlab.com/org/repo
 
 # Any git URL
-npx skills add git@github.com:vercel-labs/agent-skills.git
+npx @alexsun-top/skills add git@github.com:vercel-labs/agent-skills.git
 
 # Any HTTPS git URL with explicit ref
-npx skills add https://git.example.com/team/skill-pack.git@release-2026
+npx @alexsun-top/skills add https://git.example.com/team/skill-pack.git@release-2026
 
 # GitHub URL with explicit tag/branch/commit ref
-npx skills add https://github.com/user/skills.git@v1.2.3
+npx @alexsun-top/skills add https://github.com/user/skills.git@v1.2.3
 
 # Any SSH git URL with explicit ref
-npx skills add git@git.example.com:team/skill-pack.git@main
+npx @alexsun-top/skills add git@git.example.com:team/skill-pack.git@main
 
 # Local path
-npx skills add ./my-local-skills
+npx @alexsun-top/skills add ./my-local-skills
 ```
 
 ### Options
@@ -59,28 +76,28 @@ npx skills add ./my-local-skills
 
 ```bash
 # List skills in a repository
-npx skills add vercel-labs/agent-skills --list
+npx @alexsun-top/skills add vercel-labs/agent-skills --list
 
 # Install specific skills
-npx skills add vercel-labs/agent-skills --skill frontend-design --skill skill-creator
+npx @alexsun-top/skills add vercel-labs/agent-skills --skill frontend-design --skill skill-creator
 
 # Install a skill with spaces in the name (must be quoted)
-npx skills add owner/repo --skill "Convex Best Practices"
+npx @alexsun-top/skills add owner/repo --skill "Convex Best Practices"
 
 # Install to specific agents
-npx skills add vercel-labs/agent-skills -a claude-code -a opencode
+npx @alexsun-top/skills add vercel-labs/agent-skills -a claude-code -a opencode
 
 # Non-interactive installation (CI/CD friendly)
-npx skills add vercel-labs/agent-skills --skill frontend-design -g -a claude-code -y
+npx @alexsun-top/skills add vercel-labs/agent-skills --skill frontend-design -g -a claude-code -y
 
 # Install all skills from a repo to all agents
-npx skills add vercel-labs/agent-skills --all
+npx @alexsun-top/skills add vercel-labs/agent-skills --all
 
 # Install all skills to specific agents
-npx skills add vercel-labs/agent-skills --skill '*' -a claude-code
+npx @alexsun-top/skills add vercel-labs/agent-skills --skill '*' -a claude-code
 
 # Install specific skills to all agents
-npx skills add vercel-labs/agent-skills --agent '*' --skill frontend-design
+npx @alexsun-top/skills add vercel-labs/agent-skills --agent '*' --skill frontend-design
 ```
 
 ### Installation Scope
@@ -101,15 +118,15 @@ When installing interactively, you can choose:
 
 ## Other Commands
 
-| Command                       | Description                                    |
-| ----------------------------- | ---------------------------------------------- |
-| `npx skills list`             | List installed skills (alias: `ls`)            |
-| `npx skills find [query]`     | Search for skills interactively or by keyword  |
-| `npx skills remove [skills]`  | Remove installed skills from agents            |
-| `npx skills check`            | Check for available skill updates              |
-| `npx skills update`           | Update all installed skills to latest versions |
-| `npx skills init [name]`      | Create a new SKILL.md template                 |
-| `npx skills config <command>` | Manage configuration settings                  |
+| Command                                    | Description                                    |
+| ------------------------------------------ | ---------------------------------------------- |
+| `npx @alexsun-top/skills list`             | List installed skills (alias: `ls`)            |
+| `npx @alexsun-top/skills find [query]`     | Search for skills interactively or by keyword  |
+| `npx @alexsun-top/skills remove [skills]`  | Remove installed skills from agents            |
+| `npx @alexsun-top/skills check`            | Check for available skill updates              |
+| `npx @alexsun-top/skills update`           | Update all installed skills to latest versions |
+| `npx @alexsun-top/skills init [name]`      | Create a new SKILL.md template                 |
+| `npx @alexsun-top/skills config <command>` | Manage configuration settings                  |
 
 ### `skills list`
 
@@ -117,13 +134,13 @@ List all installed skills. Similar to `npm ls`.
 
 ```bash
 # List all installed skills (project and global)
-npx skills list
+npx @alexsun-top/skills list
 
 # List only global skills
-npx skills ls -g
+npx @alexsun-top/skills ls -g
 
 # Filter by specific agents
-npx skills ls -a claude-code -a cursor
+npx @alexsun-top/skills ls -a claude-code -a cursor
 ```
 
 ### `skills find`
@@ -132,30 +149,30 @@ Search for skills interactively or by keyword.
 
 ```bash
 # Interactive search (fzf-style)
-npx skills find
+npx @alexsun-top/skills find
 
 # Search by keyword
-npx skills find typescript
+npx @alexsun-top/skills find typescript
 ```
 
 ### `skills check` / `skills update`
 
 ```bash
 # Check if any installed skills have updates
-npx skills check
+npx @alexsun-top/skills check
 
 # Update all skills to latest versions
-npx skills update
+npx @alexsun-top/skills update
 ```
 
 ### `skills init`
 
 ```bash
 # Create SKILL.md in current directory
-npx skills init
+npx @alexsun-top/skills init
 
 # Create a new skill in a subdirectory
-npx skills init my-skill
+npx @alexsun-top/skills init my-skill
 ```
 
 ### `skills remove`
@@ -164,31 +181,31 @@ Remove installed skills from agents.
 
 ```bash
 # Remove interactively (select from installed skills)
-npx skills remove
+npx @alexsun-top/skills remove
 
 # Remove specific skill by name
-npx skills remove web-design-guidelines
+npx @alexsun-top/skills remove web-design-guidelines
 
 # Remove multiple skills
-npx skills remove frontend-design web-design-guidelines
+npx @alexsun-top/skills remove frontend-design web-design-guidelines
 
 # Remove from global scope
-npx skills remove --global web-design-guidelines
+npx @alexsun-top/skills remove --global web-design-guidelines
 
 # Remove from specific agents only
-npx skills remove --agent claude-code cursor my-skill
+npx @alexsun-top/skills remove --agent claude-code cursor my-skill
 
 # Remove all installed skills without confirmation
-npx skills remove --all
+npx @alexsun-top/skills remove --all
 
 # Remove all skills from a specific agent
-npx skills remove --skill '*' -a cursor
+npx @alexsun-top/skills remove --skill '*' -a cursor
 
 # Remove a specific skill from all agents
-npx skills remove my-skill --agent '*'
+npx @alexsun-top/skills remove my-skill --agent '*'
 
 # Use 'rm' alias
-npx skills rm my-skill
+npx @alexsun-top/skills rm my-skill
 ```
 
 | Option         | Description                                      |
@@ -205,16 +222,16 @@ Manage skills CLI configuration settings.
 
 ```bash
 # Get a config value
-npx skills config get registry
+npx @alexsun-top/skills config get registry
 
 # Set a config value
-npx skills config set registry https://my-registry.com
+npx @alexsun-top/skills config set registry https://my-registry.com
 
 # List all config values with their sources
-npx skills config list
+npx @alexsun-top/skills config list
 
 # Remove a config value (revert to default)
-npx skills config unset timeout
+npx @alexsun-top/skills config unset timeout
 ```
 
 #### Configuration Keys
@@ -242,22 +259,22 @@ Configuration values are resolved in this priority order:
 
 ```bash
 # Set a custom registry
-npx skills config set registry https://my-company.com/skills
+npx @alexsun-top/skills config set registry https://my-company.com/skills
 
 # Set timeout to 60 seconds
-npx skills config set timeout 60
+npx @alexsun-top/skills config set timeout 60
 
 # Disable telemetry
-npx skills config set telemetry false
+npx @alexsun-top/skills config set telemetry false
 
 # Get current registry (shows effective value considering env vars)
-npx skills config get registry
+npx @alexsun-top/skills config get registry
 
 # Show all config values with their sources
-npx skills config list
+npx @alexsun-top/skills config list
 
 # Remove custom registry (revert to default)
-npx skills config unset registry
+npx @alexsun-top/skills config unset registry
 ```
 
 ## What are Agent Skills?
@@ -481,7 +498,7 @@ Ensure you have write access to the target directory.
 
 ```bash
 # Install internal skills
-INSTALL_INTERNAL_SKILLS=1 npx skills add vercel-labs/agent-skills --list
+INSTALL_INTERNAL_SKILLS=1 npx @alexsun-top/skills add vercel-labs/agent-skills --list
 ```
 
 ## Telemetry
