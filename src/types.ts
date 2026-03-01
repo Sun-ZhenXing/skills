@@ -64,7 +64,7 @@ export interface AgentConfig {
 }
 
 export interface ParsedSource {
-  type: 'github' | 'gitlab' | 'git' | 'local' | 'direct-url' | 'well-known';
+  type: 'github' | 'gitlab' | 'git' | 'local' | 'well-known';
   url: string;
   subpath?: string;
   localPath?: string;
@@ -77,14 +77,6 @@ export interface ParsedSource {
   resolvedRevision?: string;
   /** Skill name extracted from @skill syntax (e.g., owner/repo@skill-name) */
   skillFilter?: string;
-}
-
-export interface MintlifySkill {
-  name: string;
-  description: string;
-  content: string;
-  mintlifySite: string;
-  sourceUrl: string;
 }
 
 /**
@@ -103,7 +95,7 @@ export interface RemoteSkill {
   sourceUrl: string;
   /** The provider that fetched this skill */
   providerId: string;
-  /** Source identifier for telemetry (e.g., "mintlify/bun.com") */
+  /** Source identifier for telemetry (e.g., "mintlify.com") */
   sourceIdentifier: string;
   /** Any additional metadata from frontmatter */
   metadata?: Record<string, unknown>;
