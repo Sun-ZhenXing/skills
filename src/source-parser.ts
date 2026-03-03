@@ -84,42 +84,23 @@ function isLocalPath(input: string): boolean {
 }
 
 function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: string } | null {
-  let sourceInput = input;
-  let refFromSuffix: string | undefined;
-
-  // Optional trailing @ref syntax, e.g.:
-  // - https://github.com/user/repo.git@v1.2.3
-  // - git@github.com:user/repo.git@main
-  // Use the LAST @ so SSH user segment (git@host:...) is preserved.
-  const lastAt = input.lastIndexOf('@');
-  if (lastAt > 0 && lastAt < input.length - 1) {
-    const base = input.slice(0, lastAt);
-    const suffix = input.slice(lastAt + 1);
-    const isScpLikeBase = /^[^\s@]+@[^\s:#]+:[^\s#]+$/.test(base);
-    const isSchemeBase = /^(https?|ssh|git):\/\//.test(base);
-
-    if ((isScpLikeBase || isSchemeBase) && !suffix.includes('#') && !suffix.includes('?')) {
-      sourceInput = base;
-      refFromSuffix = suffix;
-    }
-  }
-
   // scp-like syntax: git@host:org/repo.git[#ref]
-  const scpLikeMatch = sourceInput.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
+  // Note: @ref suffix is NOT supported; only #ref is used for Git ref specification.
+  const scpLikeMatch = input.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
   if (scpLikeMatch) {
     const [, base, refFromHash] = scpLikeMatch;
     return {
       normalizedUrl: base!,
-      ref: refFromSuffix || refFromHash,
+      ref: refFromHash,
     };
   }
 
-  if (!/^(https?|ssh|git):\/\//.test(sourceInput)) {
+  if (!/^(https?|ssh|git):\/\//.test(input)) {
     return null;
   }
 
   try {
-    const parsed = new URL(sourceInput);
+    const parsed = new URL(input);
 
     // For HTTP(S), only treat .git paths as generic git repos.
     // This prevents classifying arbitrary websites as git repositories.
@@ -132,7 +113,7 @@ function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: st
 
     const refFromQuery = parsed.searchParams.get('ref') ?? undefined;
     const refFromHash = parsed.hash ? parsed.hash.slice(1) : undefined;
-    const ref = refFromSuffix || refFromQuery || refFromHash;
+    const ref = refFromQuery || refFromHash;
 
     // Normalize by dropping tracking-only selectors
     if (parsed.searchParams.has('ref')) {
@@ -202,8 +183,9 @@ export function parseSource(input: string): ParsedSource {
   }
 
   // GitHub URL: https://github.com/owner/repo
+  // Note: @ref is NOT supported for Git ref; use #ref instead (e.g., repo.git#v1.0.0)
   const githubRepoMatch = input.match(
-    /^https?:\/\/github\.com\/([^/]+)\/([^/@]+?)(?:\.git)?(?:@([^/?#]+))?\/?$/
+    /^https?:\/\/github\.com\/([^/]+)\/([^/@#]+?)(?:\.git)?(?:#([^/?#]+))?\/?$/
   );
   if (githubRepoMatch) {
     const [, owner, repo, ref] = githubRepoMatch;
@@ -276,16 +258,34 @@ export function parseSource(input: string): ParsedSource {
     }
   }
 
-  // GitHub shorthand: owner/repo, owner/repo/path/to/skill, or owner/repo@skill-name
+  // GitHub shorthand: owner/repo, owner/repo/path/to/skill, owner/repo@skill-name, or owner/repo#ref
   // Exclude paths that start with . or / to avoid matching local paths
   // First check for @skill syntax: owner/repo@skill-name
-  const atSkillMatch = input.match(/^([^/]+)\/([^/@]+)@(.+)$/);
+  const atSkillMatch = input.match(/^([^/]+)\/([^/@#]+)@(.+)$/);
   if (atSkillMatch && !input.includes(':') && !input.startsWith('.') && !input.startsWith('/')) {
     const [, owner, repo, skillFilter] = atSkillMatch;
     return {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       skillFilter,
+    };
+  }
+
+  // GitHub shorthand with #ref: owner/repo#ref
+  const shorthandRefMatch = input.match(/^([^/]+)\/([^/@#]+)#(.+)$/);
+  if (
+    shorthandRefMatch &&
+    !input.includes(':') &&
+    !input.startsWith('.') &&
+    !input.startsWith('/')
+  ) {
+    const [, owner, repo, ref] = shorthandRefMatch;
+    return {
+      type: 'github',
+      url: `https://github.com/${owner}/${repo}.git`,
+      ref,
+      declaredRef: ref,
+      resolvedRef: ref,
     };
   }
 
