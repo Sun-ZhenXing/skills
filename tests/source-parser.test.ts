@@ -203,8 +203,6 @@ describe('parseSource', () => {
       expect(result.type).toBe('git');
       expect(result.url).toBe('https://git.example.com/owner/repo.git');
       expect(result.ref).toBe('release-2026');
-      expect(result.declaredRef).toBe('release-2026');
-      expect(result.resolvedRef).toBe('release-2026');
     });
 
     it('Git URL - @ref is NOT extracted (breaking change)', () => {
@@ -219,8 +217,6 @@ describe('parseSource', () => {
       expect(result.type).toBe('git');
       expect(result.url).toBe('git@git.example.com:team/skill-pack.git');
       expect(result.ref).toBe('feature/add-skill');
-      expect(result.declaredRef).toBe('feature/add-skill');
-      expect(result.resolvedRef).toBe('feature/add-skill');
     });
 
     it('Git URL - scp-like @ref is NOT extracted (breaking change)', () => {
@@ -241,7 +237,6 @@ describe('parseSource', () => {
       expect(result.type).toBe('git');
       expect(result.url).toBe('https://git.example.com/team/skill-pack.git');
       expect(result.ref).toBe('release-2026');
-      expect(result.resolvedRef).toBe('release-2026');
     });
 
     it('Git URL - HTTPS with ?ref=', () => {
@@ -249,7 +244,13 @@ describe('parseSource', () => {
       expect(result.type).toBe('git');
       expect(result.url).toBe('https://git.example.com/team/skill-pack.git');
       expect(result.ref).toBe('v1.2.3');
-      expect(result.resolvedRef).toBe('v1.2.3');
+    });
+
+    it('Git URL - #ref takes priority over ?ref= when both present', () => {
+      const result = parseSource('https://git.example.com/team/skill-pack.git?ref=main#v1.0.0');
+      expect(result.type).toBe('git');
+      expect(result.url).toBe('https://git.example.com/team/skill-pack.git');
+      expect(result.ref).toBe('v1.0.0');
     });
 
     it('Git URL - scp-like with #ref', () => {
@@ -257,7 +258,6 @@ describe('parseSource', () => {
       expect(result.type).toBe('git');
       expect(result.url).toBe('git@git.example.com:team/skill-pack.git');
       expect(result.ref).toBe('feature/add-skill');
-      expect(result.resolvedRef).toBe('feature/add-skill');
     });
   });
 
@@ -276,8 +276,6 @@ describe('parseSource', () => {
       const result = parseSource('https://github.com/owner/repo.git#v1.2.3');
       expect(result.url).toBe('https://github.com/owner/repo.git');
       expect(result.ref).toBe('v1.2.3');
-      expect(result.declaredRef).toBe('v1.2.3');
-      expect(result.resolvedRef).toBe('v1.2.3');
     });
 
     it('GitHub URL - @ref is NOT extracted (breaking change: use #ref)', () => {
@@ -291,8 +289,6 @@ describe('parseSource', () => {
       expect(result.type).toBe('github');
       expect(result.url).toBe('https://github.com/owner/repo.git');
       expect(result.ref).toBe('v1.0.0');
-      expect(result.declaredRef).toBe('v1.0.0');
-      expect(result.resolvedRef).toBe('v1.0.0');
     });
   });
 });

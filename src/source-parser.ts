@@ -113,7 +113,8 @@ function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: st
 
     const refFromQuery = parsed.searchParams.get('ref') ?? undefined;
     const refFromHash = parsed.hash ? parsed.hash.slice(1) : undefined;
-    const ref = refFromQuery || refFromHash;
+    // Hash ref (#ref) takes priority over query ref (?ref=) per spec
+    const ref = refFromHash || refFromQuery;
 
     // Normalize by dropping tracking-only selectors
     if (parsed.searchParams.has('ref')) {
@@ -165,7 +166,6 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       ref,
-      resolvedRef: ref,
       subpath,
     };
   }
@@ -178,7 +178,6 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       ref,
-      resolvedRef: ref,
     };
   }
 
@@ -194,8 +193,6 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${cleanRepo}.git`,
       ref,
-      declaredRef: ref,
-      resolvedRef: ref,
     };
   }
 
@@ -212,7 +209,6 @@ export function parseSource(input: string): ParsedSource {
         type: 'gitlab',
         url: `${protocol}://${hostname}/${repoPath.replace(/\.git$/, '')}.git`,
         ref,
-        resolvedRef: ref,
         subpath,
       };
     }
@@ -227,7 +223,6 @@ export function parseSource(input: string): ParsedSource {
         type: 'gitlab',
         url: `${protocol}://${hostname}/${repoPath.replace(/\.git$/, '')}.git`,
         ref,
-        resolvedRef: ref,
       };
     }
   }
@@ -252,8 +247,6 @@ export function parseSource(input: string): ParsedSource {
         type: 'gitlab',
         url: `https://gitlab.com/${repoPath}.git`,
         ref,
-        declaredRef: ref,
-        resolvedRef: ref,
       };
     }
   }
@@ -284,8 +277,6 @@ export function parseSource(input: string): ParsedSource {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       ref,
-      declaredRef: ref,
-      resolvedRef: ref,
     };
   }
 
@@ -306,8 +297,6 @@ export function parseSource(input: string): ParsedSource {
       type: 'git',
       url: genericGitSource.normalizedUrl,
       ref: genericGitSource.ref,
-      declaredRef: genericGitSource.ref,
-      resolvedRef: genericGitSource.ref,
     };
   }
 
