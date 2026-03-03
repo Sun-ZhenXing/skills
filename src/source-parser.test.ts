@@ -9,7 +9,6 @@ describe('source-parser', () => {
         type: 'gitlab',
         url: 'https://git.corp.com/group/subgroup/project.git',
         ref: 'main',
-        resolvedRef: 'main',
         subpath: 'src',
       });
     });
@@ -20,7 +19,6 @@ describe('source-parser', () => {
         type: 'gitlab',
         url: 'https://gitlab.example.com/org/repo.git',
         ref: 'v1.0',
-        resolvedRef: 'v1.0',
       });
     });
 
@@ -65,8 +63,6 @@ describe('source-parser', () => {
         type: 'git',
         url: 'https://git.mycompany.com/my-group/my-repo.git',
         ref: 'release/v2',
-        declaredRef: 'release/v2',
-        resolvedRef: 'release/v2',
       });
     });
 
@@ -76,8 +72,15 @@ describe('source-parser', () => {
         type: 'git',
         url: 'https://git.mycompany.com/my-group/my-repo.git',
         ref: 'main',
-        declaredRef: 'main',
-        resolvedRef: 'main',
+      });
+    });
+
+    it('prefers #ref over ?ref= when both are present', () => {
+      const result = parseSource('https://git.mycompany.com/my-group/my-repo.git?ref=main#v1.0.0');
+      expect(result).toEqual({
+        type: 'git',
+        url: 'https://git.mycompany.com/my-group/my-repo.git',
+        ref: 'v1.0.0',
       });
     });
 
@@ -87,8 +90,6 @@ describe('source-parser', () => {
         type: 'git',
         url: 'git@git.mycompany.com:my-group/my-repo.git',
         ref: 'feature/test',
-        declaredRef: 'feature/test',
-        resolvedRef: 'feature/test',
       });
     });
 
@@ -135,7 +136,6 @@ describe('source-parser', () => {
         type: 'github',
         url: 'https://github.com/owner/repo.git',
         ref: 'main',
-        resolvedRef: 'main',
         subpath: 'path',
       });
     });
@@ -145,8 +145,6 @@ describe('source-parser', () => {
       expect(result).toMatchObject({
         url: 'https://github.com/owner/repo.git',
         ref: 'v1.2.3',
-        declaredRef: 'v1.2.3',
-        resolvedRef: 'v1.2.3',
       });
     });
 
@@ -170,8 +168,6 @@ describe('source-parser', () => {
         type: 'github',
         url: 'https://github.com/owner/repo.git',
         ref: 'v1.0.0',
-        declaredRef: 'v1.0.0',
-        resolvedRef: 'v1.0.0',
       });
     });
   });
