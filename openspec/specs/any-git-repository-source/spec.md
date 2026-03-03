@@ -4,7 +4,7 @@
 TBD - created by archiving change support-any-git-repo. Update Purpose after archive.
 ## Requirements
 ### Requirement: Accept any accessible Git repository as add source
-The `skills add` command SHALL accept a full Git repository locator as input, including HTTPS and SSH forms supported by the local Git client, in addition to existing GitHub shorthand input. For Git repository locators, the command SHALL support an optional trailing `@<ref>` suffix where `<ref>` is a Git tag, branch, or commit hash.
+The `skills add` command SHALL accept a full Git repository locator as input, including HTTPS and SSH forms supported by the local Git client, in addition to existing GitHub shorthand input. For Git repository locators, the command SHALL support an optional trailing `#<ref>` suffix where `<ref>` is a Git tag, branch, or commit hash. Note: the `@<ref>` suffix is no longer supported for specifying Git refs; use `#<ref>` instead.
 
 #### Scenario: Add from HTTPS Git repository
 - **WHEN** a user runs `skills add https://git.example.com/team/skill-pack.git`
@@ -15,12 +15,12 @@ The `skills add` command SHALL accept a full Git repository locator as input, in
 - **THEN** the CLI invokes Git clone with the provided SSH locator and continues installation when clone succeeds
 
 #### Scenario: Add from Git repository with explicit ref suffix
-- **WHEN** a user runs `skills add https://github.com/user/skills.git@v1.2.3`
+- **WHEN** a user runs `skills add https://github.com/user/skills.git#v1.2.3`
 - **THEN** the CLI parses `v1.2.3` as the desired Git reference and checks out that reference before skill discovery
 
-#### Scenario: SSH URL keeps user segment while parsing ref
-- **WHEN** a user runs `skills add git@github.com:user/skills.git@main`
-- **THEN** the CLI treats `git@github.com:user/skills.git` as repository locator and `main` as reference suffix
+#### Scenario: SSH URL keeps user segment while #ref specifies Git ref
+- **WHEN** a user runs `skills add git@github.com:user/skills.git#main`
+- **THEN** the CLI treats `git@github.com:user/skills.git` as repository locator and `main` as Git reference
 
 ### Requirement: Preserve source reference and resolved revision in lock data
 For installs originating from a non-local Git repository, the system MUST persist enough source metadata to reproduce or reason about updates, including normalized source locator, source type, declared reference when provided, and resolved revision when available.

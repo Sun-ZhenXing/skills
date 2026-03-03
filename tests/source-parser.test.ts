@@ -198,8 +198,8 @@ describe('parseSource', () => {
       expect(result.url).toBe('git@github.com:owner/repo.git');
     });
 
-    it('Git URL - HTTPS with trailing @ref', () => {
-      const result = parseSource('https://git.example.com/owner/repo.git@release-2026');
+    it('Git URL - HTTPS with #ref (replaces @ref)', () => {
+      const result = parseSource('https://git.example.com/owner/repo.git#release-2026');
       expect(result.type).toBe('git');
       expect(result.url).toBe('https://git.example.com/owner/repo.git');
       expect(result.ref).toBe('release-2026');
@@ -207,13 +207,27 @@ describe('parseSource', () => {
       expect(result.resolvedRef).toBe('release-2026');
     });
 
-    it('Git URL - scp-like with trailing @ref', () => {
-      const result = parseSource('git@git.example.com:team/skill-pack.git@feature/add-skill');
+    it('Git URL - @ref is NOT extracted (breaking change)', () => {
+      const result = parseSource('https://git.example.com/owner/repo.git@release-2026');
+      // @ref is NOT extracted as Git ref; use #ref instead
+      // URL with @ref embedded is no longer treated as a git URL
+      expect(result.ref).toBeUndefined();
+    });
+
+    it('Git URL - scp-like with #ref (replaces @ref)', () => {
+      const result = parseSource('git@git.example.com:team/skill-pack.git#feature/add-skill');
       expect(result.type).toBe('git');
       expect(result.url).toBe('git@git.example.com:team/skill-pack.git');
       expect(result.ref).toBe('feature/add-skill');
       expect(result.declaredRef).toBe('feature/add-skill');
       expect(result.resolvedRef).toBe('feature/add-skill');
+    });
+
+    it('Git URL - scp-like @ref is NOT extracted (breaking change)', () => {
+      const result = parseSource('git@git.example.com:team/skill-pack.git@feature/add-skill');
+      expect(result.type).toBe('git');
+      // @ref is NOT extracted as Git ref; use #ref instead
+      expect(result.ref).toBeUndefined();
     });
 
     it('Git URL - custom host', () => {
@@ -257,14 +271,28 @@ describe('parseSource', () => {
     });
   });
 
-  describe('GitHub repo @ref URL tests', () => {
-    it('GitHub URL - .git with trailing @ref', () => {
-      const result = parseSource('https://github.com/owner/repo.git@v1.2.3');
-      expect(result.type).toBe('github');
+  describe('GitHub repo #ref URL tests', () => {
+    it('GitHub URL - .git with trailing #ref', () => {
+      const result = parseSource('https://github.com/owner/repo.git#v1.2.3');
       expect(result.url).toBe('https://github.com/owner/repo.git');
       expect(result.ref).toBe('v1.2.3');
       expect(result.declaredRef).toBe('v1.2.3');
       expect(result.resolvedRef).toBe('v1.2.3');
+    });
+
+    it('GitHub URL - @ref is NOT extracted (breaking change: use #ref)', () => {
+      const result = parseSource('https://github.com/owner/repo.git@v1.2.3');
+      // @ref is not extracted as Git ref
+      expect(result.ref).toBeUndefined();
+    });
+
+    it('GitHub shorthand with #ref', () => {
+      const result = parseSource('owner/repo#v1.0.0');
+      expect(result.type).toBe('github');
+      expect(result.url).toBe('https://github.com/owner/repo.git');
+      expect(result.ref).toBe('v1.0.0');
+      expect(result.declaredRef).toBe('v1.0.0');
+      expect(result.resolvedRef).toBe('v1.0.0');
     });
   });
 });

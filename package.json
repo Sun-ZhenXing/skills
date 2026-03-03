@@ -1,6 +1,6 @@
 {
   "name": "@alexsun-top/skills",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "The open agent skills ecosystem (Fork of npx skills by alexsun-top)",
   "type": "module",
   "bin": {

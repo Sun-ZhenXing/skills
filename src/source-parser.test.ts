@@ -92,26 +92,16 @@ describe('source-parser', () => {
       });
     });
 
-    it('extracts trailing @ref from generic HTTPS git URL', () => {
+    it('does NOT extract trailing @ref from generic HTTPS git URL (@ref no longer supported)', () => {
       const result = parseSource('https://git.mycompany.com/my-group/my-repo.git@release/v3');
-      expect(result).toEqual({
-        type: 'git',
-        url: 'https://git.mycompany.com/my-group/my-repo.git',
-        ref: 'release/v3',
-        declaredRef: 'release/v3',
-        resolvedRef: 'release/v3',
-      });
+      // @ref is not extracted as Git ref; use #ref instead
+      expect(result.ref).toBeUndefined();
     });
 
-    it('extracts trailing @ref from scp-like ssh locator', () => {
+    it('does NOT extract trailing @ref from scp-like ssh locator (@ref no longer supported)', () => {
       const result = parseSource('git@git.mycompany.com:my-group/my-repo.git@feature/test');
-      expect(result).toEqual({
-        type: 'git',
-        url: 'git@git.mycompany.com:my-group/my-repo.git',
-        ref: 'feature/test',
-        declaredRef: 'feature/test',
-        resolvedRef: 'feature/test',
-      });
+      // @ref is not extracted as Git ref; the whole string becomes the URL
+      expect(result.ref).toBeUndefined();
     });
 
     it('prevents false positives for generic URLs (falls through to well-known)', () => {
@@ -150,15 +140,19 @@ describe('source-parser', () => {
       });
     });
 
-    it('parses github repo URL with trailing @ref suffix', () => {
-      const result = parseSource('https://github.com/owner/repo.git@v1.2.3');
-      expect(result).toEqual({
-        type: 'github',
+    it('parses github repo URL with trailing #ref suffix', () => {
+      const result = parseSource('https://github.com/owner/repo.git#v1.2.3');
+      expect(result).toMatchObject({
         url: 'https://github.com/owner/repo.git',
         ref: 'v1.2.3',
         declaredRef: 'v1.2.3',
         resolvedRef: 'v1.2.3',
       });
+    });
+
+    it('does NOT extract @ref from github repo URL (breaking change: use #ref)', () => {
+      const result = parseSource('https://github.com/owner/repo.git@v1.2.3');
+      expect(result.ref).toBeUndefined();
     });
 
     it('keeps @skill shorthand priority over generic git ref parsing', () => {
@@ -167,6 +161,17 @@ describe('source-parser', () => {
         type: 'github',
         url: 'https://github.com/owner/repo.git',
         skillFilter: 'my-skill',
+      });
+    });
+
+    it('parses owner/repo#ref shorthand syntax', () => {
+      const result = parseSource('owner/repo#v1.0.0');
+      expect(result).toEqual({
+        type: 'github',
+        url: 'https://github.com/owner/repo.git',
+        ref: 'v1.0.0',
+        declaredRef: 'v1.0.0',
+        resolvedRef: 'v1.0.0',
       });
     });
   });

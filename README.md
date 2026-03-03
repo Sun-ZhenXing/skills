@@ -47,14 +47,17 @@ npx @alexsun-top/skills add https://gitlab.com/org/repo
 # Any git URL
 npx @alexsun-top/skills add git@github.com:vercel-labs/agent-skills.git
 
-# Any HTTPS git URL with explicit ref
-npx @alexsun-top/skills add https://git.example.com/team/skill-pack.git@release-2026
+# Any HTTPS git URL with explicit ref (use #ref, not @ref)
+npx @alexsun-top/skills add https://git.example.com/team/skill-pack.git#release-2026
 
 # GitHub URL with explicit tag/branch/commit ref
-npx @alexsun-top/skills add https://github.com/user/skills.git@v1.2.3
+npx @alexsun-top/skills add https://github.com/user/skills.git#v1.2.3
 
-# Any SSH git URL with explicit ref
-npx @alexsun-top/skills add git@git.example.com:team/skill-pack.git@main
+# GitHub shorthand with explicit ref
+npx @alexsun-top/skills add owner/repo#v1.0.0
+
+# Any SSH git URL with explicit ref (use #ref)
+npx @alexsun-top/skills add git@git.example.com:team/skill-pack.git#main
 
 # Local path
 npx @alexsun-top/skills add ./my-local-skills

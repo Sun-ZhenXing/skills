@@ -83,78 +83,24 @@ function isLocalPath(input: string): boolean {
   );
 }
 
-/**
- * Check if a URL is a direct link to a skill.md file.
- * Supports various hosts: Mintlify docs, HuggingFace Spaces, etc.
- * e.g., https://docs.bun.com/docs/skill.md
- * e.g., https://huggingface.co/spaces/owner/repo/blob/main/SKILL.md
- *
- * Note: GitHub and GitLab URLs are excluded as they have their own handling
- * for cloning repositories.
- */
-function isDirectSkillUrl(input: string): boolean {
-  if (!input.startsWith('http://') && !input.startsWith('https://')) {
-    return false;
-  }
-
-  // Must end with skill.md (case insensitive)
-  if (!input.toLowerCase().endsWith('/skill.md')) {
-    return false;
-  }
-
-  // Exclude GitHub and GitLab repository URLs - they have their own handling
-  // (but allow raw.githubusercontent.com if someone wants to use it directly)
-  if (input.includes('github.com/') && !input.includes('raw.githubusercontent.com')) {
-    // Check if it's a blob/raw URL to SKILL.md (these should be handled by providers)
-    // vs a tree/repo URL (these should be cloned)
-    if (!input.includes('/blob/') && !input.includes('/raw/')) {
-      return false;
-    }
-  }
-  if (input.includes('gitlab.com/') && !input.includes('/-/raw/')) {
-    return false;
-  }
-
-  return true;
-}
-
 function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: string } | null {
-  let sourceInput = input;
-  let refFromSuffix: string | undefined;
-
-  // Optional trailing @ref syntax, e.g.:
-  // - https://github.com/user/repo.git@v1.2.3
-  // - git@github.com:user/repo.git@main
-  // Use the LAST @ so SSH user segment (git@host:...) is preserved.
-  const lastAt = input.lastIndexOf('@');
-  if (lastAt > 0 && lastAt < input.length - 1) {
-    const base = input.slice(0, lastAt);
-    const suffix = input.slice(lastAt + 1);
-    const isScpLikeBase = /^[^\s@]+@[^\s:#]+:[^\s#]+$/.test(base);
-    const isSchemeBase = /^(https?|ssh|git):\/\//.test(base);
-
-    if ((isScpLikeBase || isSchemeBase) && !suffix.includes('#') && !suffix.includes('?')) {
-      sourceInput = base;
-      refFromSuffix = suffix;
-    }
-  }
-
   // scp-like syntax: git@host:org/repo.git[#ref]
-  const scpLikeMatch = sourceInput.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
+  // Note: @ref suffix is NOT supported; only #ref is used for Git ref specification.
+  const scpLikeMatch = input.match(/^([^\s#]+@[^\s:#]+:[^\s#]+?)(?:#([^\s#]+))?$/);
   if (scpLikeMatch) {
     const [, base, refFromHash] = scpLikeMatch;
     return {
       normalizedUrl: base!,
-      ref: refFromSuffix || refFromHash,
+      ref: refFromHash,
     };
   }
 
-  if (!/^(https?|ssh|git):\/\//.test(sourceInput)) {
+  if (!/^(https?|ssh|git):\/\//.test(input)) {
     return null;
   }
 
   try {
-    const parsed = new URL(sourceInput);
+    const parsed = new URL(input);
 
     // For HTTP(S), only treat .git paths as generic git repos.
     // This prevents classifying arbitrary websites as git repositories.
@@ -167,7 +113,7 @@ function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: st
 
     const refFromQuery = parsed.searchParams.get('ref') ?? undefined;
     const refFromHash = parsed.hash ? parsed.hash.slice(1) : undefined;
-    const ref = refFromSuffix || refFromQuery || refFromHash;
+    const ref = refFromQuery || refFromHash;
 
     // Normalize by dropping tracking-only selectors
     if (parsed.searchParams.has('ref')) {
@@ -186,7 +132,7 @@ function parseGenericGitSource(input: string): { normalizedUrl: string; ref?: st
 
 /**
  * Parse a source string into a structured format
- * Supports: local paths, GitHub URLs, GitLab URLs, GitHub shorthand, direct skill.md URLs, and direct git URLs
+ * Supports: local paths, GitHub URLs, GitLab URLs, GitHub shorthand, well-known URLs, and direct git URLs
  */
 // Source aliases: map common shorthand to canonical source
 const SOURCE_ALIASES: Record<string, string> = {
@@ -208,14 +154,6 @@ export function parseSource(input: string): ParsedSource {
       type: 'local',
       url: resolvedPath, // Store resolved path in url for consistency
       localPath: resolvedPath,
-    };
-  }
-
-  // Direct skill.md URL (non-GitHub/GitLab): https://docs.bun.com/docs/skill.md
-  if (isDirectSkillUrl(input)) {
-    return {
-      type: 'direct-url',
-      url: input,
     };
   }
 
@@ -245,8 +183,9 @@ export function parseSource(input: string): ParsedSource {
   }
 
   // GitHub URL: https://github.com/owner/repo
+  // Note: @ref is NOT supported for Git ref; use #ref instead (e.g., repo.git#v1.0.0)
   const githubRepoMatch = input.match(
-    /^https?:\/\/github\.com\/([^/]+)\/([^/@]+?)(?:\.git)?(?:@([^/?#]+))?\/?$/
+    /^https?:\/\/github\.com\/([^/]+)\/([^/@#]+?)(?:\.git)?(?:#([^/?#]+))?\/?$/
   );
   if (githubRepoMatch) {
     const [, owner, repo, ref] = githubRepoMatch;
@@ -319,16 +258,34 @@ export function parseSource(input: string): ParsedSource {
     }
   }
 
-  // GitHub shorthand: owner/repo, owner/repo/path/to/skill, or owner/repo@skill-name
+  // GitHub shorthand: owner/repo, owner/repo/path/to/skill, owner/repo@skill-name, or owner/repo#ref
   // Exclude paths that start with . or / to avoid matching local paths
   // First check for @skill syntax: owner/repo@skill-name
-  const atSkillMatch = input.match(/^([^/]+)\/([^/@]+)@(.+)$/);
+  const atSkillMatch = input.match(/^([^/]+)\/([^/@#]+)@(.+)$/);
   if (atSkillMatch && !input.includes(':') && !input.startsWith('.') && !input.startsWith('/')) {
     const [, owner, repo, skillFilter] = atSkillMatch;
     return {
       type: 'github',
       url: `https://github.com/${owner}/${repo}.git`,
       skillFilter,
+    };
+  }
+
+  // GitHub shorthand with #ref: owner/repo#ref
+  const shorthandRefMatch = input.match(/^([^/]+)\/([^/@#]+)#(.+)$/);
+  if (
+    shorthandRefMatch &&
+    !input.includes(':') &&
+    !input.startsWith('.') &&
+    !input.startsWith('/')
+  ) {
+    const [, owner, repo, ref] = shorthandRefMatch;
+    return {
+      type: 'github',
+      url: `https://github.com/${owner}/${repo}.git`,
+      ref,
+      declaredRef: ref,
+      resolvedRef: ref,
     };
   }
 
@@ -384,18 +341,8 @@ function isWellKnownUrl(input: string): boolean {
     const parsed = new URL(input);
 
     // Exclude known git hosts that have their own handling
-    const excludedHosts = [
-      'github.com',
-      'gitlab.com',
-      'huggingface.co',
-      'raw.githubusercontent.com',
-    ];
+    const excludedHosts = ['github.com', 'gitlab.com', 'raw.githubusercontent.com'];
     if (excludedHosts.includes(parsed.hostname)) {
-      return false;
-    }
-
-    // Don't match URLs that look like direct skill.md links (handled by direct-url type)
-    if (input.toLowerCase().endsWith('/skill.md')) {
       return false;
     }
 
